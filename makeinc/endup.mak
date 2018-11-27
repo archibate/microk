@@ -1,0 +1,12 @@
+PRECIOUS+=$B% $B%.o $B%.d
+
+clean:
+	-$V$(DEL) $(CLEAN)
+
+.PHONY: $(PHONY)
+
+.PRECIOUS: $(PRECIOUS)
+
+.SUFFIXES: $(SUFFIXES)
+
+.DELETE_ON_ERROR: $(DELETE_ON_ERROR)

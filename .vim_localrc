@@ -1,0 +1,5 @@
+au BufNewFile,BufRead .vim_localrc set ft=vim
+au BufNewFile,BufRead *.c syn keyword Type uint
+au BufNewFile,BufRead *.c syn keyword Type ulong
+
+nnoremap <F5> :wa<CR>:!make -B run<CR><CR>

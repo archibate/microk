@@ -1,0 +1,3 @@
+source ../.vim_localrc
+
+nnoremap <F5> :wa<CR>:!make -BC.. run<CR><CR>

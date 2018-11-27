@@ -1,0 +1,16 @@
+bin
+bin/*
+*/bin
+*/bin/*
+*.o
+*.d
+*.obj
+*.elf
+*.bin
+*.img
+*~
+.*~
+.*.sw*
+*.out
+*.ign
+.DS_Store

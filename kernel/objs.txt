@@ -1,0 +1,16 @@
+start
+main
+initrd
+sys
+syscall
+desc
+tss
+print
+serial
+irq
+irqents
+expents
+gen.irqdfldoes
+gen.expdfldoes
+expdump
+panic
