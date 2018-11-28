@@ -14,14 +14,16 @@ static inline void memmove(void *dst, const void *src, unsigned long n)
 		return memcpy(dst, src, n);
 }
 
-static inline void *bzero(void *dst, unsigned long n)
+static inline volatile void *bzero
+(volatile void *dst, unsigned long n)
 {
-	memset(dst, 0, n);
+	memset((void *) dst, 0, n);
 	return dst;
 }
 
-static inline void *bcopy(const void *src, void *dst, unsigned long n)
+static inline volatile void *bcopy
+(const volatile void *src, volatile void *dst, unsigned long n)
 {
-	memcpy(dst, src, n);
+	memcpy((void *) dst, (const void *) src, n);
 	return dst;
 }

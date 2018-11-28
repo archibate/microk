@@ -1,5 +1,28 @@
 au BufNewFile,BufRead .vim_localrc set ft=vim
 au BufNewFile,BufRead *.c syn keyword Type uint
 au BufNewFile,BufRead *.c syn keyword Type ulong
+"au BufNewFile,BufRead *.c syn keyword Constant vpt
+"au BufNewFile,BufRead *.c syn keyword Constant vpd
+"au BufNewFile,BufRead *.c syn keyword Function memset
+"au BufNewFile,BufRead *.c syn keyword Function memcpy
+"au BufNewFile,BufRead *.c syn keyword Function bzero
+"au BufNewFile,BufRead *.c syn keyword Function bcopy
+au BufNewFile,BufRead *.c syn keyword Keyword __attribute__
+"au BufNewFile,BufRead *.c syn keyword Function __builtin_unreachable
+"au BufNewFile,BufRead *.c syn keyword Function l4_ipc
+
+au BufNewFile,BufRead *.c syn keyword Type TCB
+au BufNewFile,BufRead *.c syn keyword Type l4id_t
+au BufNewFile,BufRead *.c syn keyword Type PT_REGS
+au BufNewFile,BufRead *.c syn keyword Keyword STRUCT
+au BufNewFile,BufRead *.c syn keyword Function vpt
+au BufNewFile,BufRead *.c syn keyword Function vpd
+au BufNewFile,BufRead *.c syn keyword Function vregs
+au BufNewFile,BufRead *.c syn keyword Function regsof
+au BufNewFile,BufRead *.c syn keyword Constant L4_NIL
+au BufNewFile,BufRead *.c syn keyword Constant L4_ANY
 
 nnoremap <F5> :wa<CR>:!make -B run<CR><CR>
+nnoremap <F5> :wa<CR>:!make -B deubg DEBUG=1<CR><CR>
+
+inoremap jk <ESC>

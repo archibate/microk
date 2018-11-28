@@ -3,46 +3,8 @@
 #include <memory.h>
 #include <types.h>
 #include "print.h"
-
-STRUCT(SEM) // this struct is maintained by kernel
-{
-	uint rd : 12;
-	uint wr : 12;
-};
-
-void wait_wr(SEM *sem)
-{
-	// XXX
-}
-
-void wait_rd(SEM *sem)
-{
-	// XXX
-}
-
-int sem_len(SEM *sem)
-{
-	return sem->wr - sem->rd;
-}
-
-void sem_init(SEM *sem)
-{
-	sem->rd = sem->wr = 0;
-}
-
-int sem_wr(SEM *sem)
-{
-	while (sem->wr == sem->rd - 1)
-		wait_wr(sem);
-	return sem->wr++;
-}
-
-int sem_rd(SEM *sem)
-{
-	if (sem->rd == sem->wr)
-		wait_rd(sem);
-	return sem->rd++;
-}
+#include "ptregs.h"
+#include "panic.h"
 
 #define PPGMAX 1024
 
@@ -60,7 +22,7 @@ void free_ppg(ulong pa)
 
 void init_ppg(void)
 {
-	for (ulong pa = 0x120000; pa < 0x120000 + PPGMAX * 4096; pa += 4096)
+	for (ulong pa = 0x400000; pa < 0x400000 + PPGMAX * 4096; pa += 4096)
 		free_ppg(pa);
 }
 
@@ -74,6 +36,13 @@ void setcr3(ulong cr3)
 	asm volatile ("mov %0,%%cr3" :: "r" (cr3) : "memory");
 }
 
+ulong getcr3(void)
+{
+	ulong cr3;
+	asm volatile ("mov %%cr3,%0" : "=r" (cr3) :: "memory");
+	return cr3;
+}
+
 void enacr0(ulong flags)
 {
 	ulong cr0;
@@ -83,6 +52,8 @@ void enacr0(ulong flags)
 
 #define vpt ((volatile ulong*)0xffc00000)
 #define vpd ((volatile ulong*)0xfffff000)
+
+#define getpgd() ((vpd[1023] & -4096L))
 
 void init_vpt(void)
 {
@@ -109,7 +80,8 @@ void map_page(ulong va, ulong pte)
 
 	if (!(1 & vpd[pdi])) {
 		vpd[pdi] = ppage() | 7;
-		invlpg((ulong)&vpt[pti]);
+		invlpg(-4096L&(ulong)&vpt[pti]);
+		//bzero(&vpt[pti & 1023], 4096);
 	}
 	vpt[pti] = pte;
 	invlpg(va);
@@ -120,35 +92,204 @@ void new_page(ulong va)
 	map_page(va, ppage() | 7);
 }
 
-ulong del_page(ulong va)
+ulong unmap_page(ulong va)
 {
 	uint pdi = va >> 22;
 	uint pti = va >> 12;
 
-	if (5 != (5 & vpd[pdi]))
+	if (!(1 & vpd[pdi]))
 		return 0;
-	if (5 != (5 & vpt[pti]))
+	ulong pte = vpt[pti];
+	if (!(1 & pte))
 		return 0;
-	free_ppg(vpt[pti] & -4096L);
 	vpt[pti] = 0;
+	return pte;
+}
+
+ulong del_page(ulong va)
+{
+	ulong pte = unmap_page(va);
+	if (!pte)
+		return 0;
+	free_ppg(pte & -4096L);
+	vpt[va >> 12] = 0;
 	return 1;
 }
 
-#define SEMMAX 16
-SEM sems[SEMMAX];
+#define TMPGMAX 16
+ulong tmpgvastk[TMPGMAX], *tmpgvasp = tmpgvastk;
 
-ulong syscall(uint ax, uint cx, uint dx)
+void init_tmpg(void)
 {
-	ulong r = 0;
-	switch (ax) {
-	case 0x0:                sem_init(&sems[cx % SEMMAX]); break;
-	case 0x1: while (dx--) r = sem_rd(&sems[cx % SEMMAX]); break;
-	case 0x2: while (dx--) r = sem_wr(&sems[cx % SEMMAX]); break;
-	case 0x3: r = sem_len(&sems[cx % SEMMAX]); break;
-	case 0x4:     new_page     (cx);           break;
-	case 0x5: r = del_page     (cx);           break;
+	for (ulong va = 0x120000; va < 0x120000 + TMPGMAX * 4096; va += 4096)
+		*tmpgvasp++ = va;
+}
+
+ulong *tmpg(ulong pa)
+{
+	ulong va = *--tmpgvasp;
+	map_page(va, pa | 3);
+	return (ulong*)va;
+}
+
+void untmpg(ulong *v)
+{
+	ulong pte = unmap_page((ulong)v);
+	assert(pte & 1);
+	*tmpgvasp++ = (ulong)v;
+}
+
+void newpgd(void)
+{
+	ulong pgd = ppage();
+	ulong *pd = tmpg(pgd);
+	bzero(pd, 4096);
+	pd[1023] = (ulong)pgd | 3 | 24;
+	untmpg(pd);
+}
+
+ulong copiedpgd(void)
+{
+	ulong pgd = ppage();
+	ulong *pd = tmpg(pgd);
+	bcopy(vpd, pd, 4096);
+	pd[1023] = pgd | 3 | 24;
+	untmpg(pd);
+	return pgd;
+}
+
+void forkizevpd(void)
+{
+	for (uint i = 1; i < 1023; i++) {
+		if (vpd[i] & 1) {
+			ulong pta = ppage();
+			ulong *pt = tmpg(pta);
+#if 1
+			for (uint k = 0; k < 1024; k++) {
+				if (vpt[i*1024+k] & 1) {
+					ulong pga = ppage();
+					ulong *pg = tmpg(pga);
+					ulong opgva = 4096*(i*1024+k); 
+					printf("%p:%p\n", opgva, pg);
+					bcopy((ulong*)opgva, pg, 4096);
+					untmpg(pg);
+					pt[k] = pga | 7;
+					//printf("~%p:%p:%d\n", vpd[1023], opgva, i*1024+k);
+				}
+			}
+#else
+			bcopy(&vpt[i*1024], pt, 4096);
+#endif
+					//printf("#%p:%p\n", vpd[i], vpd[1023]);
+			vpd[i] = pta | 7;
+					//printf("$%p:%p\n", vpd[i], vpd[1023]);
+			untmpg(pt);
+		}
+	}
+	setcr3(getcr3());
+}
+
+ulong forkpgd(void)
+{
+	ulong opgd = getcr3();
+	ulong pgd = copiedpgd();
+	setcr3(pgd);
+	forkizevpd();
+	setcr3(opgd);
+	return pgd;
+}
+
+#ifdef macker // {{{
+
+// https://github.com/jserv/codezero/blob/master/docs/Codezero_Reference_Manual.pdf
+l4_send   (to,   flags) := l4_ipc(to,   L4_NIL, flags);
+l4_recieve(from, flags) := l4_ipc(L4_NIL, from, flags);
+
+l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
+
+#endif // }}}
+
+#define vregs ((volatile PT_REGS*)0x400000)
+
+void recvregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong *pt  = (ulong*)(pd[1] & -4096L);
+	ulong pte  =         (pt[0] & -4096L);
+	vpt[0x400] = pte;
+	untmpg(pd);
+}
+
+void sendregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong pgt  = pd[1] & -4096L;
+	ulong *pt  = tmpg(pgt);
+	pt[0]      = vpt[0x400] | 7;
+	untmpg(pt);
+	untmpg(pd);
+}
+
+void sdrvregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong pgt  = pd[1] & -4096L;
+	ulong *pt  = tmpg(pgt);
+	ulong pte  = pt[0] & -4096L;
+	pt[0]      = vpt[0x400];
+	vpt[0x400] = pte;
+	untmpg(pt);
+	untmpg(pd);
+}
+
+STRUCT(TCB)
+{
+	ulong *pgd;
+	TCB *next, *prev;
+};
+
+#define MAXTASK 32
+ulong pgds[MAXTASK];
+
+void do_ipc(uint to, uint fr)
+{
+	printf("do_ipc(%d,%d)\n", to, fr);
+	if (to != -1 && to == fr)
+		sdrvregs(pgds[to]);
+	else {
+		if (to != -1) sendregs(pgds[to]);
+		if (fr != -1) recvregs(pgds[fr]);
+	}
+}
+
+void do_swch(uint to)
+{
+	printf("do_swch(%d)\n", to);
+	printf("%p:%p:%p\n", vpd[1023], vpd[0x1], vpt[0x400]);
+	printf("do_swch: %d\n", vregs->ax);
+	setcr3(pgds[to]);
+	printf("%p:%p:%p\n", vpd[1023], vpd[0x1], vpt[0x400]);
+	printf("do_swch: %d\n", vregs->ax);
+}
+
+void do_fork(uint to)
+{
+	printf("do_fork(%d)\n", to);
+	vregs->ax = 0;
+	pgds[to] = forkpgd();
+	vregs->ax = 7;
+}
+
+void syscall(uint ax, uint cx, uint dx)
+{
+	switch (ax)
+	{
+	case 0x0: return do_ipc(cx, dx);
+	case 0x1: return do_swch(cx);
+	case 0x2: return do_fork(cx);
+	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
+	default : return;
 	};
-	return r;
 }
 
 void __attribute__((noreturn)) move_to_user(ulong eip, uint eflags, uint esp)
@@ -189,8 +330,13 @@ extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
 void init_rd(void)
 {
+	pgds[0] = getpgd();
+
+	new_page    (  0x400000);
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
-	new_pages_in(0xfeed0000,                          0x10000         );
-	map_pages_in(0xfd000000, 0xfd000000     | 7,      800 * 600       );
-	move_to_user(0x10000000, 0x002, 0xfeedff90);
+	map_pages_in(0xa0000000, 0x00000000     | 7,      0x40000         );
+	new_pages_in(0xfeed0000,                          0x8000          );
+	map_pages_in(0xe0000000, 0xfd000000     | 7,      800 * 600       );
+
+	move_to_user(0x10000000,      0x002,              0xfeed7f90      );
 }

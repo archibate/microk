@@ -1,0 +1,71 @@
+
+#if 0 // {{{
+STRUCT(SEM) // this struct is maintained by kernel
+{
+	uint rd : 12;
+	uint wr : 12;
+	TCB *wait_rd;
+	TCB *wait_wr;
+};
+
+TCB *current;
+
+void ctxswch(TCB *next)
+{
+	current->pgd = vpd[1023];
+	setcr3(next->pgd);
+	current = next;
+	ctxswch(current->next);
+}
+
+void wait_on(TCB **p_wait_head)
+{
+	current->prev->next = current->next;
+	current->next->prev = current->prev;
+	current->next = *p_wait_head;
+	*p_wait_head = current;
+	ctxswch(current->next);
+}
+
+void trig_up(TCB **p_wait_head)
+{
+	TCB *head = *p_wait_head;
+	*p_wait_head = head->next;
+	current->prev->next = head;
+	head->prev = current->prev;
+	current->prev = head;
+	head->next = current;
+	ctxswch(head);
+}
+
+int sem_len(SEM *sem)
+{
+	return (sem->wr - sem->rd) & 4095;
+}
+
+void sem_init(SEM *sem)
+{
+	sem->rd = sem->wr = 0;
+}
+
+int sem_wr(SEM *sem)
+{
+	if (sem->wr == sem->rd - 1) {
+		wait_on(&sem->wait_wr);
+		return;
+	}
+	trig_up(&sem->wait_rd);
+	return sem->wr++;
+}
+
+int sem_rd(SEM *sem)
+{
+	if (sem->rd == sem->wr)
+		wait_on(&sem->wait_rd);
+	trig_up(&sem->wait_wr);
+	return sem->rd++;
+}
+
+#define SEMMAX 16
+SEM sems[SEMMAX];
+#endif // }}}
