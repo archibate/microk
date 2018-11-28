@@ -7,7 +7,7 @@ TSS tss0;
 
 void init_tss(void)
 {
-	tss0.ts_esp0 = 0x400000 + sizeof(PT_REGS);
+	tss0.ts_esp0 = 0x400000 + sizeof(IF_REGS);
 	tss0.ts_ss0 = 0x0010;
 	tss0.ts_iomb = offsetof(TSS, ts_iomaps);
 	tss0.ts_iomaps[0] = 0xff; // for now

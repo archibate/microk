@@ -19,7 +19,7 @@ add-symbol-file init/bin/init.elf 0x10000000
 set disassemble-next-line on
 set disassembly-flavor intel
 
-set $vregs = ((PT_REGS*)0x400000)
+set $vregs = ((IF_REGS*)0x400000)
 set $vpt   = ((ulong*)0xffc00000)
 set $vpd   = ((ulong*)0xfffff000)
 
@@ -43,5 +43,6 @@ end
 
 b panic
 b exp14
+b exp13
 b do_break_point
-c
+bc __int_return

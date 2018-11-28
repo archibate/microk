@@ -1,5 +1,14 @@
 #include <types.h>
+#include <stddef.h>
 #include <memory.h>
+#include <struct.h>
+
+STRUCT(UT_REGS)
+{
+	ulong bx, si, di, dx, bp;
+};
+
+extern void c4_ipcux(uint to, uint fr, const UT_REGS *wr, const UT_REGS *rd);
 
 uint syscall(uint ax, uint cx, uint dx)
 {
@@ -25,7 +34,11 @@ void main(void)
 
 	if (c4_fork(1)) {
 		c4_swch(1);
+		//UT_REGS wr;
+		//c4_ipcux(1, 255, &wr, NULL);
 	} else {
+		//UT_REGS rd;
+		//c4_ipcux(255, 0, NULL, &rd);
 		c4_halt();
 	}
 	*(int*)0xdeadc0de = 0xfacedeaf;

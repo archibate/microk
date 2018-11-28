@@ -116,7 +116,7 @@ ulong del_page(ulong va)
 	return 1;
 }
 
-#define TMPGMAX 16
+#define TMPGMAX 6
 ulong tmpgvastk[TMPGMAX], *tmpgvasp = tmpgvastk;
 
 void init_tmpg(void)
@@ -205,8 +205,9 @@ l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
 
 #endif // }}}
 
-#define vregs ((volatile PT_REGS*)0x400000)
+#define vregs ((volatile IF_REGS*)0x400000)
 
+#if 1
 void recvregs(ulong pgd)
 {
 	ulong *pd  = tmpg(pgd);
@@ -237,6 +238,7 @@ void sdrvregs(ulong pgd)
 	untmpg(pt);
 	untmpg(pd);
 }
+#endif
 
 STRUCT(TCB)
 {
@@ -246,39 +248,46 @@ STRUCT(TCB)
 
 #define MAXTASK 32
 ulong pgds[MAXTASK];
+#define ONSEND 1
+#define ONRECV 2
+uint states[MAXTASK];
 
-void c4_ipc(uint to, uint fr)
+/*void do_send(uint to)
 {
-	printf("c4_ipc(%d,%d)\n", to, fr);
-	if (to != -1 && to == fr)
+	if (states[to] == ONRECV) {
+		setcr3(pgds[to]);
+	}
+}*/
+
+void do_ipctx(uint to, uint fr)
+{
+	if (to != 255 && to == fr)
 		sdrvregs(pgds[to]);
 	else {
-		if (to != -1) sendregs(pgds[to]);
-		if (fr != -1) recvregs(pgds[fr]);
+		if (to != 255) sendregs(pgds[to]);
+		if (fr != 255) sendregs(pgds[fr]);
 	}
 }
 
-void c4_swch(uint to)
+void do_swch(uint to)
 {
-	printf("c4_swch(%d)\n", to);
 	setcr3(pgds[to]);
 }
 
-void c4_fork(uint to)
+void do_fork(uint to)
 {
-	printf("c4_fork(%d)\n", to);
 	vregs->ax = 0;
 	pgds[to] = forkpgd();
 	vregs->ax = 7;
 }
 
-void syscall(uint ax, uint cx, uint dx)
+void syscall(uint ax, uint cx)
 {
 	switch (ax)
 	{
-	case 0x0: return c4_ipc(cx, dx);
-	case 0x1: return c4_swch(cx);
-	case 0x2: return c4_fork(cx);
+	case 0x0: return do_ipctx(cx & 0xff, (cx >> 8) & 0xff);
+	case 0x1: return do_swch(cx);
+	case 0x2: return do_fork(cx);
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
 	default : return;
 	};
@@ -325,8 +334,9 @@ void init_rd(void)
 	pgds[0] = getpgd();
 
 	new_page    (  0x400000);
+	new_page    (  0x401000);
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
-	map_pages_in(0xa0000000, 0x00000000     | 7,      0x40000         );
+	//map_pages_in(0xa0000000, 0x00000000     | 7,      0x40000         );
 	new_pages_in(0xfeed0000,                          0x8000          );
 	map_pages_in(0xe0000000, 0xfd000000     | 7,      800 * 600       );
 
