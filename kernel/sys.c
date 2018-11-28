@@ -170,19 +170,15 @@ void forkizevpd(void)
 					ulong pga = ppage();
 					ulong *pg = tmpg(pga);
 					ulong opgva = 4096*(i*1024+k); 
-					printf("%p:%p\n", opgva, pg);
 					bcopy((ulong*)opgva, pg, 4096);
 					untmpg(pg);
 					pt[k] = pga | 7;
-					//printf("~%p:%p:%d\n", vpd[1023], opgva, i*1024+k);
 				}
 			}
 #else
 			bcopy(&vpt[i*1024], pt, 4096);
 #endif
-					//printf("#%p:%p\n", vpd[i], vpd[1023]);
 			vpd[i] = pta | 7;
-					//printf("$%p:%p\n", vpd[i], vpd[1023]);
 			untmpg(pt);
 		}
 	}
@@ -251,9 +247,9 @@ STRUCT(TCB)
 #define MAXTASK 32
 ulong pgds[MAXTASK];
 
-void do_ipc(uint to, uint fr)
+void c4_ipc(uint to, uint fr)
 {
-	printf("do_ipc(%d,%d)\n", to, fr);
+	printf("c4_ipc(%d,%d)\n", to, fr);
 	if (to != -1 && to == fr)
 		sdrvregs(pgds[to]);
 	else {
@@ -262,19 +258,15 @@ void do_ipc(uint to, uint fr)
 	}
 }
 
-void do_swch(uint to)
+void c4_swch(uint to)
 {
-	printf("do_swch(%d)\n", to);
-	printf("%p:%p:%p\n", vpd[1023], vpd[0x1], vpt[0x400]);
-	printf("do_swch: %d\n", vregs->ax);
+	printf("c4_swch(%d)\n", to);
 	setcr3(pgds[to]);
-	printf("%p:%p:%p\n", vpd[1023], vpd[0x1], vpt[0x400]);
-	printf("do_swch: %d\n", vregs->ax);
 }
 
-void do_fork(uint to)
+void c4_fork(uint to)
 {
-	printf("do_fork(%d)\n", to);
+	printf("c4_fork(%d)\n", to);
 	vregs->ax = 0;
 	pgds[to] = forkpgd();
 	vregs->ax = 7;
@@ -284,9 +276,9 @@ void syscall(uint ax, uint cx, uint dx)
 {
 	switch (ax)
 	{
-	case 0x0: return do_ipc(cx, dx);
-	case 0x1: return do_swch(cx);
-	case 0x2: return do_fork(cx);
+	case 0x0: return c4_ipc(cx, dx);
+	case 0x1: return c4_swch(cx);
+	case 0x2: return c4_fork(cx);
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
 	default : return;
 	};
