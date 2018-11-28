@@ -45,4 +45,6 @@ b panic
 b exp14
 b exp13
 b do_break_point
-bc __int_return
+bc syscall
+#bc do_sendtx
+##bc __int_return

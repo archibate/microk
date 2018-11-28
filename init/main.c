@@ -8,7 +8,7 @@ STRUCT(UT_REGS)
 	ulong bx, si, di, dx, bp;
 };
 
-extern void c4_ipcux(uint to, uint fr, const UT_REGS *wr, const UT_REGS *rd);
+extern uint c4_sysux(uint ax, uint cx, const UT_REGS *wr, const UT_REGS *rd);
 
 uint syscall(uint ax, uint cx, uint dx)
 {
@@ -17,10 +17,10 @@ uint syscall(uint ax, uint cx, uint dx)
 	return res;
 }
 
-#define c4_ipc(to, fr) syscall(0, to, fr)
-#define c4_swch(to)    syscall(1, to, 0)
-#define c4_fork(to)    syscall(2, to, 0)
-#define c4_halt()      syscall(9, 0, 0)
+#define C4_IPC  0
+#define C4_FORK 2
+#define C4_NIL  63
+#define C4_SYS(to, fr) ((to) | ((fr) << 8))
 
 void main(void)
 {
@@ -32,14 +32,14 @@ void main(void)
 		vram[i] = i % 64;
 	}
 
-	if (c4_fork(1)) {
-		c4_swch(1);
-		//UT_REGS wr;
-		//c4_ipcux(1, 255, &wr, NULL);
+	UT_REGS rd;
+	if (!c4_sysux(C4_FORK, C4_SYS(1, 0), NULL, &rd)) {
+		// child here!!
+		while (rd.dx == 12);
+		*(int*)0xdeadc0de = 0xfacedeaf;
 	} else {
-		//UT_REGS rd;
-		//c4_ipcux(255, 0, NULL, &rd);
-		c4_halt();
+		UT_REGS wr;
+		wr.dx = 12;
+		c4_sysux(C4_IPC, C4_SYS(1, C4_NIL), &wr, NULL);
 	}
-	*(int*)0xdeadc0de = 0xfacedeaf;
 }

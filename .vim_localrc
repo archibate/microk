@@ -11,16 +11,24 @@ au BufNewFile,BufRead *.c syn keyword Keyword __attribute__
 "au BufNewFile,BufRead *.c syn keyword Function __builtin_unreachable
 "au BufNewFile,BufRead *.c syn keyword Function l4_ipc
 
+au BufNewFile,BufRead *.c syn keyword Type c4id_t
 au BufNewFile,BufRead *.c syn keyword Type TCB
-au BufNewFile,BufRead *.c syn keyword Type l4id_t
-au BufNewFile,BufRead *.c syn keyword Type PT_REGS
+au BufNewFile,BufRead *.c syn keyword Type IF_REGS
+au BufNewFile,BufRead *.c syn keyword Type UT_REGS
 au BufNewFile,BufRead *.c syn keyword Keyword STRUCT
 au BufNewFile,BufRead *.c syn keyword Function vpt
 au BufNewFile,BufRead *.c syn keyword Function vpd
 au BufNewFile,BufRead *.c syn keyword Function vregs
-au BufNewFile,BufRead *.c syn keyword Function regsof
-au BufNewFile,BufRead *.c syn keyword Constant L4_NIL
-au BufNewFile,BufRead *.c syn keyword Constant L4_ANY
+au BufNewFile,BufRead *.c syn keyword Function pgdof
+"au BufNewFile,BufRead *.c syn keyword Function recvof
+"au BufNewFile,BufRead *.c syn keyword Function sendof
+"au BufNewFile,BufRead *.c syn keyword Function mksend
+"au BufNewFile,BufRead *.c syn keyword Function mkrecv
+au BufNewFile,BufRead *.c syn keyword Constant C4_NIL
+au BufNewFile,BufRead *.c syn keyword Constant C4_ANY
+au BufNewFile,BufRead *.c syn keyword Constant C4_IPC
+au BufNewFile,BufRead *.c syn keyword Constant C4_FORK
+au BufNewFile,BufRead *.c syn keyword Function C4_SYS
 
 nnoremap <F5> :wa<CR>:!make -B run<CR><CR>
 nnoremap <F5> :wa<CR>:!make -B deubg DEBUG=1<CR><CR>

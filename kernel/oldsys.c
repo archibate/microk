@@ -243,71 +243,71 @@ void sdrvregs(ulong pgd)
 
 STRUCT(TCB)
 {
-	ulong pgd;
+	ulong *pgd;
 	TCB *next, *prev;
 };
 
 #define MAXTASK 63
 ulong T[MAXTASK];
 #define pgdof(t) ((t) & -4096L)
+#define sendof(t) ((t) & 63)
+#define recvof(t) (((t) >> 6) & 63)
+#define mksend(i) ((i) & 63)
+#define mkrecv(i) (((i) & 63) << 6)
+#define isrecvme(i) ((i) == 63 || (i) == curr)
 
-void do_sendtx(uint to)
-{ // XXX: blocking system how-to??
-	printf("to=%d\n", to);
-	assert(pgdof(T[to]) != getcr3());
-	/*if (T[to].recv == 63 || T[to].recv == curr) {*/
+void do_sendtx(uint to, uint len)
+{
+	r = recvof(T[to]);
+	if (r == 63 || r == curr) {
 		ulong brga = vpt[0x400];
 		setcr3(T[to] = pgdof(T[to]));
 		ulong *brg = tmpg(brga);
-		bcopy(brg, vregs, 4096);
+		bcopy(brg, vregs, len);
 		untmpg(brg);
-	/*} else {
+	} else {
 		T[curr] |= mksend(to);
 		setcr3(T[to]);
-	}*/
+	}
 }
 
-void do_recvtx(uint fr)
+void do_recvtx(uint fr, uint len)
 {
-	printf("fr=%d\n", fr);
-	/*if (sendof(T[fr]) == curr) {*/
+	if (sendof(T[fr]) == curr) {
 		ulong pgd = pgdof(T[fr]);
 		ulong *pd = tmpg(pgd);
 		assert(pd[0x1] & 1);
 		ulong pgt = pd[0x1] & 4096L;
-		untmpg(pd);
+		untmpg(pgd);
 		ulong *pt = tmpg(pgt);
 		assert(pt[0x1] & 1);
 		ulong pga = pt[0x0] & 4096L;
 		untmpg(pt);
 		ulong *pg = tmpg(pga);
-		bcopy(pg, vregs, 4096);
-	/*} else {
+		bcopy(pg, vregs, len);
+	} else {
 		T[curr] |= mkrecv(fr);
 		setcr3(T[fr]);
-	}*/
+	}
 }
 
-void do_ipctx(uint to, uint fr)
+void do_ipctx(uint to, uint fr, uint len)
 {
-	printf("do_ipctx(%d,%d)\n", to, fr);
-	if (to != 63 && to == fr) {
+	if (to != 255 && to == fr)
 		assert(0);
-	} else {
-		if (fr != 63) do_recvtx(fr);
-		if (to != 63) do_sendtx(to);
+	else {
+		if (to != 255) do_recvtx(fr, len);
+		if (fr != 255) do_sendtx(to, len);
 	}
 }
 
 void do_swch(uint to)
 {
-	printf("do_swch(%d)\n", to);
 	setcr3(T[to] = pgdof(T[to]));
 }
 
 void do_fork(uint to)
 {
-	printf("do_fork(%d)\n", to);
 	vregs->ax = 0;
 	T[to] = forkpgd();
 	vregs->ax = 7;
@@ -315,14 +315,11 @@ void do_fork(uint to)
 
 void syscall(uint ax, uint cx)
 {
-	uint to = cx & 0xff;
-	uint fr = (cx >> 8) & 0xff;
 	switch (ax)
 	{
-	case 0x0: return do_ipctx(to, fr);
-	case 0x1: return do_swch(to);
-	case 0x2: return do_fork(to);
-	case 0x8: printf("c4_print: cx=%d\n", cx); return;
+	case 0x0: return do_ipctx(cx & 0xff, (cx >> 8) & 0xff, 8 * sizeof(ulong));
+	case 0x1: return do_swch(cx);
+	case 0x2: return do_fork(cx);
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
 	default : return;
 	};
