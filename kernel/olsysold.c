@@ -126,14 +126,14 @@ void init_tmpg(void)
 		*tmpgvasp++ = va;
 }
 
-void *tmpg(ulong pa)
+ulong *tmpg(ulong pa)
 {
 	ulong va = *--tmpgvasp;
 	map_page(va, pa | 3);
-	return (void*)va;
+	return (ulong*)va;
 }
 
-void untmpg(void *v)
+void untmpg(ulong *v)
 {
 	ulong pte = unmap_page((ulong)v);
 	assert(pte & 1);
@@ -247,7 +247,6 @@ STRUCT(TCB)
 {
 	ulong pgd;
 	uint state;
-	union { uint hangpte, sentpte; };
 	TCB *next, *recving;
 };
 
@@ -266,7 +265,8 @@ void settask(TCB *t)
 	setcr3(t->pgd);
 	settletask(t);
 }
-#include <rdtsc.h> // {{{
+
+#include <rdtsc.h>
 uint ticktsc(void)
 {
 	static uint last_tsc;
@@ -275,43 +275,89 @@ uint ticktsc(void)
 	last_tsc = tsc;
 	return res;
 }
-#if 0
+#ifdef TPR
 #define tprintf(...) printf(__VA_ARGS__)
 #else
 #define tprintf(...)
 #endif
-#if 1
-#define testp(x) do { printf(#x":%d\n", ticktsc()); ticktsc(); } while (0)
-#else
-#define testp(x)
-#endif
-#if 0
-gcc -O0:
-	0: 119.5 / 120.0
-	1:  28.0 /  27.9
-	2:   8.4 /   8.3
-	3:  10.7 /  10.8
-gcc -Os:
-	0: 115.8 / 116.3
-	1:  24.9 /  25.0
-	2:   5.7 /   5.7
-	3:   7.9 /   7.9
-gcc -O3:
-	0: 118.1 / 118.6
-	1:  20.1 /  20.2
-	2:   4.9 /   4.9
-	3:   6.6 /   6.6
-#endif // }}}
 
-void do_ipc(uint to)
+void do_sendtx(uint to)
 {
-	tprintf("do_ipc(to=%d)\n", to);
+	tprintf("do_send(to=%d)\n", to);
+	assert(T[to].pgd != getcr3());
 
-	curr->state = ONSEND;
-	ulong mypte = vpt[0x400];
+	if (T[to].state == ONRECV) {
+		tprintf("direct send\n");
+		ulong oldpte = vpt[0x400];
+		settask(&T[to]);
+#define mymy
+#ifdef mymy
+		vpt[0x402] = oldpte;
+		invlpg((ulong)oldregs);
+		void *bpg = (void*)oldregs;
+#else // {{{
+		void *bpg = tmpg(oldpte & -4096L);
+#endif // }}}
+		bcopy(bpg, vregs, 4096);
+#ifndef mymy // {{{
+		untmpg(bpg);
+#endif // }}}
+		printf("S:%d:%d\n", ticktsc(), vregs->dx);
+	} else {
+		tprintf("block on send\n");
+		curr->state = ONSEND;
+		curr->next = T[to].recving;
+		T[to].recving = curr;
+		settask(&T[to]);
+	}
+}
+
+void do_recvtx(uint fr)
+{
+	tprintf("do_recv(fr=%d)\n", fr);
+	assert(fr != ANY);
+
+	if (!curr->recving) {
+		tprintf("block on recv\n");
+		curr->state = ONRECV;
+		settask(&T[fr]);
+		return;
+	}
+	tprintf("direct recv\n");
+
+	TCB *from = curr->recving;
+	curr->recving = from->next;
+
+	ulong pgd = from->pgd;
+	ulong *pd = tmpg(pgd);
+	assert(pd[0x1] & 1);
+	ulong pgt = pd[0x1] & -4096L;
+	untmpg(pd);
+	ulong *pt = tmpg(pgt);
+	assert(pt[0x0] & 1);
+	ulong pga = pt[0x0] & -4096L;
+	untmpg(pt);
+	ulong *pg = tmpg(pga);
+	bcopy(pg, vregs, 4096);
+	untmpg(pg);
+	printf("R:%d:%d\n", ticktsc(), vregs->dx);
+}
+
+void do_ipctx(uint to, uint fr)
+{
+	//printf("do_ipctx(%d,%d)\n", to, fr);
+	if (to != NIL && to == fr) {
+		assert(0);
+	} else {
+		if (fr != NIL) do_recvtx(fr);
+		if (to != NIL) do_sendtx(to);
+	}
+}
+
+void do_swch(uint to)
+{
+	printf("do_swch(%d)\n", to);
 	settask(&T[to]);
-	vpt[0x400] = mypte;
-	invlpg((ulong)vregs);
 }
 
 void do_fork(uint to)
@@ -330,7 +376,8 @@ void syscall(uint ax, uint cx)
 	assert(to != ANY);
 	switch (ax)
 	{
-	case 0x0: return do_ipc(to);
+	case 0x0: return do_ipctx(to, fr);
+	case 0x1: return do_swch(to);
 	case 0x2: return do_fork(to);
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
@@ -379,7 +426,6 @@ void init_rd(void)
 	T[0].pgd = getcr3();
 	T[0].state = 0;
 	curr = &T[0];
-	curr->next = curr;
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);

@@ -42,6 +42,10 @@ PHONY+=run
 run: $(FDIMG)
 	$(SH) $Sqemu.sh
 
+PHONY+=test
+test: $(FDIMG)
+	$(SH) $Sqemu.sh -t
+
 PHONY+=debug
 debug: $(FDIMG)
 	@#@echo "*** now run 'gdb' in another terminal." >&2

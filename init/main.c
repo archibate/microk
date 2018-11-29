@@ -23,23 +23,14 @@ uint syscall(uint ax, uint cx, uint dx)
 #define C4_NIL  63
 #define C4_SYS(to, fr) ((to) | ((fr) << 8))
 
-#define c4_fork(to, reg)  c4_sysux(C4_FORK, C4_SYS(to, C4_NIL), NULL, reg)
-#define c4_send(to, reg)  c4_sysux(C4_IPC,  C4_SYS(to, C4_NIL), reg, NULL)
-#define c4_recv(fr, reg)  c4_sysux(C4_IPC,  C4_SYS(C4_NIL, fr), NULL, reg)
-/*#define c4_sendrecv(to, fr, regsd, regrv) \
-	                  c4_sysux(C4_IPC,  C4_SYS(to, fr), regsd, regrv)*/
+#define c4_fork(to, reg)   c4_sysux(C4_FORK, to, NULL, reg)
+#define c4_ipc(to, sd, rv) c4_sysux(C4_IPC,  to, sd, rv)
 
-void c4_sendch(uint to, uint ch)
+uint c4_ipcw(uint to, uint w)
 {
 	UT_REGS reg;
-	reg.dx = ch;
-	c4_send(to, &reg);
-}
-
-uint c4_recvch(uint fr)
-{
-	UT_REGS reg;
-	c4_recv(fr, &reg);
+	reg.dx = w;
+	c4_ipc(to, &reg, &reg);
 	return reg.dx;
 }
 
@@ -51,7 +42,8 @@ void server(void)
 	char *vram = (char*)0xe0000000;
 	while (1)
 	{
-		uint max = c4_recvch(CLIENT);
+		//uint max = c4_rplyrecvch(CLIENT, CLIENT, 12);
+		uint max = c4_ipcw(CLIENT, 12);
 		/*for (int i = 0; i < 800 * 600; i++)
 			vram[i] = i % max;*/
 		//*(int*)0xdeadc0de = 0xcafebabe;
@@ -60,125 +52,124 @@ void server(void)
 
 void client(void)
 {
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 64);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 32);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 86);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 16);
-	c4_sendch(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 64);
 }
 
 void main(void)
 {
 	UT_REGS reg;
 	if (!c4_fork(CLIENT, &reg))
-	{ // 1
+	{ // CLIENT
 		client();
 	}
 	else
-	{ // 0
-		c4_sendch(CLIENT, 12); // activate the child process
+	{ // SERVER
 		server();
 	}
 }

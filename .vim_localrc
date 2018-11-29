@@ -3,15 +3,16 @@ au BufNewFile,BufRead *.c syn keyword Type TCB IF_REGS UT_REGS
 au BufNewFile,BufRead *.c syn keyword Type uchar ushort uint ulong
 au BufNewFile,BufRead *.c syn keyword Constant C4_NIL C4_ANY C4_IPC C4_FORK
 au BufNewFile,BufRead *.c syn keyword Constant NIL ANY MAXTASK IPC FORK
+au BufNewFile,BufRead *.c syn keyword Function vpt vpd vregs oldregs
 au BufNewFile,BufRead *.c syn keyword Constant PPGMAX TMPGMAX
 au BufNewFile,BufRead *.c syn keyword Constant ONSEND ONRECV
-au BufNewFile,BufRead *.c syn keyword Function vpt vpd vregs
-au BufNewFile,BufRead *.c syn keyword Function pgdof
 au BufNewFile,BufRead *.c syn keyword Function C4_SYS
 au BufNewFile,BufRead *.c syn keyword Keyword __attribute__
 au BufNewFile,BufRead *.c syn keyword Keyword STRUCT
 
 nnoremap <F5> :wa<CR>:!make -B run<CR><CR>
-nnoremap <F5> :wa<CR>:!make -B deubg DEBUG=1<CR><CR>
+"nnoremap <F5> :wa<CR>:!make -B test OPTIMIZE=3<CR>
+nnoremap <F6> :wa<CR>:!make -B debug DEBUG=1<CR><CR>
+nnoremap <F7> :wa<CR>:!make -B bochsrun<CR><CR>
 
 inoremap jk <ESC>
