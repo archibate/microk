@@ -1,7 +1,7 @@
 set -e
 flgs="$QEMUFLAGS"
 flgs="$flgs -m 256"
-flgs="$flgs -boot a -fda bin/a.img"
+flgs="$flgs -boot a -fda bin/a.img -soundhw all"
 QEMU=${QEMU-qemu-system-i386}
 GDB=${GDB-cgdb}
 

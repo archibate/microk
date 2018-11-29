@@ -14,3 +14,4 @@ gen.irqdfldoes
 gen.expdfldoes
 expdump
 panic
+speaker

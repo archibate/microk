@@ -204,10 +204,7 @@ l4_recieve(from, flags) := l4_ipc(L4_NIL, from, flags);
 l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
 
 #endif // }}}
-
-#define vregs ((volatile IF_REGS*)0x400000)
-
-#if 0
+#if 0 // {{{
 // theses functions, changes the `buffering page`: 0x400000
 void recvregs(ulong pgd)
 {
@@ -239,77 +236,115 @@ void sdrvregs(ulong pgd)
 	untmpg(pt);
 	untmpg(pd);
 }
-#endif
+#endif // }}}
+#define vregs ((volatile IF_REGS*)0x400000)
 
+#define ONRECV  1
+#define ONSEND  2
 STRUCT(TCB)
 {
 	ulong pgd;
-	TCB *next, *prev;
+	uint state;
+	TCB *next, *recving;
 };
 
-#define MAXTASK 63
-ulong T[MAXTASK];
-#define pgdof(t) ((t) & -4096L)
+#define ANY     62
+#define NIL     63
+#define MAXTASK 62
+TCB T[MAXTASK], *curr;
+
+void settask(TCB *t)
+{
+	setcr3(t->pgd);
+	curr = t;
+}
+
+#include <rdtsc.h>
+uint ticktsc(void)
+{
+	static uint last_tsc;
+	uint tsc = rdtsc();
+	uint res = tsc - last_tsc;
+	last_tsc = tsc;
+	return res;
+}
 
 void do_sendtx(uint to)
-{ // XXX: blocking system how-to??
-	printf("to=%d\n", to);
-	assert(pgdof(T[to]) != getcr3());
-	/*if (T[to].recv == 63 || T[to].recv == curr) {*/
+{
+	//printf("do_send(to=%d)\n", to);
+	assert(T[to].pgd != getcr3());
+
+	if (T[to].state == ONRECV) {
+		//printf("direct send\n");
 		ulong brga = vpt[0x400];
-		setcr3(T[to] = pgdof(T[to]));
+		settask(&T[to]);
 		ulong *brg = tmpg(brga);
 		bcopy(brg, vregs, 4096);
 		untmpg(brg);
-	/*} else {
-		T[curr] |= mksend(to);
-		setcr3(T[to]);
-	}*/
+		printf("S:%d:%d\n", ticktsc(), vregs->dx);
+	} else {
+		//printf("block on send\n");
+		curr->state = ONSEND;
+		curr->next = T[to].recving;
+		T[to].recving = curr;
+		settask(&T[to]);
+	}
 }
 
 void do_recvtx(uint fr)
 {
-	printf("fr=%d\n", fr);
-	/*if (sendof(T[fr]) == curr) {*/
-		ulong pgd = pgdof(T[fr]);
-		ulong *pd = tmpg(pgd);
-		assert(pd[0x1] & 1);
-		ulong pgt = pd[0x1] & 4096L;
-		untmpg(pd);
-		ulong *pt = tmpg(pgt);
-		assert(pt[0x1] & 1);
-		ulong pga = pt[0x0] & 4096L;
-		untmpg(pt);
-		ulong *pg = tmpg(pga);
-		bcopy(pg, vregs, 4096);
-	/*} else {
-		T[curr] |= mkrecv(fr);
-		setcr3(T[fr]);
-	}*/
+	//printf("do_recv(fr=%d)\n", fr);
+	assert(fr != ANY);
+
+	if (!curr->recving) {
+		//printf("block on recv\n");
+		curr->state = ONRECV;
+		settask(&T[fr]);
+		return;
+	}
+	//printf("direct recv\n");
+
+	TCB *from = curr->recving;
+	curr->recving = from->next;
+
+	ulong pgd = from->pgd;
+	ulong *pd = tmpg(pgd);
+	assert(pd[0x1] & 1);
+	ulong pgt = pd[0x1] & -4096L;
+	untmpg(pd);
+	ulong *pt = tmpg(pgt);
+	assert(pt[0x0] & 1);
+	ulong pga = pt[0x0] & -4096L;
+	untmpg(pt);
+	ulong *pg = tmpg(pga);
+	bcopy(pg, vregs, 4096);
+	untmpg(pg);
+	printf("R:%d:%d\n", ticktsc(), vregs->dx);
 }
 
 void do_ipctx(uint to, uint fr)
 {
-	printf("do_ipctx(%d,%d)\n", to, fr);
-	if (to != 63 && to == fr) {
+	//printf("do_ipctx(%d,%d)\n", to, fr);
+	if (to != NIL && to == fr) {
 		assert(0);
 	} else {
-		if (fr != 63) do_recvtx(fr);
-		if (to != 63) do_sendtx(to);
+		if (fr != NIL) do_recvtx(fr);
+		if (to != NIL) do_sendtx(to);
 	}
 }
 
 void do_swch(uint to)
 {
 	printf("do_swch(%d)\n", to);
-	setcr3(T[to] = pgdof(T[to]));
+	settask(&T[to]);
 }
 
 void do_fork(uint to)
 {
 	printf("do_fork(%d)\n", to);
 	vregs->ax = 0;
-	T[to] = forkpgd();
+	T[to].pgd = forkpgd();
+	T[to].state = ONRECV;
 	vregs->ax = 7;
 }
 
@@ -317,6 +352,7 @@ void syscall(uint ax, uint cx)
 {
 	uint to = cx & 0xff;
 	uint fr = (cx >> 8) & 0xff;
+	assert(to != ANY);
 	switch (ax)
 	{
 	case 0x0: return do_ipctx(to, fr);
@@ -366,7 +402,9 @@ extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
 void init_rd(void)
 {
-	T[0] = getcr3();
+	T[0].pgd = getcr3();
+	T[0].state = 0;
+	curr = &T[0];
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);
