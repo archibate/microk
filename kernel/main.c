@@ -7,5 +7,6 @@ void main(void)
 	init(vpt);
 	init(tss);
 	init(idt);
-	init(rd);
+	init(pic);
+	init(sys);
 }

@@ -241,14 +241,19 @@ void sdrvregs(ulong pgd)
 #define vregs   ((volatile IF_REGS*)0x400000)
 #define oldregs ((volatile IF_REGS*)0x402000)
 
-#define ONRECV  1
-#define ONSEND  2
+#define CLOCKS_PER_SEC 100
+typedef ulong clock_t;
+#define TIME0 4
+
+#define RUNNING 1
+#define BLOCKED 2
+#define ONRECV  3
+#define ONSEND  4
 STRUCT(TCB)
 {
 	ulong pgd;
+	clock_t timeout;
 	uint state;
-	union { uint hangpte, sentpte; };
-	TCB *next, *recving;
 };
 
 #define ANY     62
@@ -256,15 +261,19 @@ STRUCT(TCB)
 #define MAXTASK 62
 TCB T[MAXTASK], *curr;
 
-void settletask(TCB *t)
+clock_t clock(void)
 {
-	curr = t;
+	uint eax, edx;
+	asm volatile ("rdtsc" : "=a" (eax), "=d" (edx) ::);
+	unsigned long long ns = eax + ((long long)edx << 32);
+	return (clock_t)(ns / (1000000 / CLOCKS_PER_SEC));
 }
 
 void settask(TCB *t)
 {
+	//printf("settask: %p\n", t);
 	setcr3(t->pgd);
-	settletask(t);
+	curr = t;
 }
 #include <rdtsc.h> // {{{
 uint ticktsc(void)
@@ -281,7 +290,7 @@ uint ticktsc(void)
 #define tprintf(...)
 #endif
 #if 1
-#define testp(x) do { printf(#x":%d\n", ticktsc()); ticktsc(); } while (0)
+#define testp(x) do { ulong t = ticktsc(); clock_t c = clock(); printf(#x":%d:%d\n", c, t); ticktsc(); } while (0)
 #else
 #define testp(x)
 #endif
@@ -303,24 +312,71 @@ gcc -O3:
 	3:   6.6 /   6.6
 #endif // }}}
 
+#define LCMP(x, y) ((long)(x) - (long)(y))
+
+void on_timer(void)
+{
+	ticktsc();
+
+	clock_t t = clock();
+	if (LCMP(t, curr->timeout) > 0) {
+		curr->timeout = (t += TIME0);
+		int id = -1;
+		for (int i = 0; i < MAXTASK; i++) {
+			if (T[i].state == RUNNING)
+				if (LCMP(T[i].timeout, t) <= 0)
+					t = T[i].timeout, id = i;
+		}
+		assert(id != -1);
+		if (&T[id] != curr)
+			settask(&T[id]);
+	}
+	testp(t);
+}
+
 void do_ipc(uint to)
 {
 	tprintf("do_ipc(to=%d)\n", to);
+	ticktsc();
 
-	curr->state = ONSEND;
+	curr->state = BLOCKED;
+	assert(T[to].state == BLOCKED);
+	T[to].state = RUNNING;
+
 	ulong mypte = vpt[0x400];
 	settask(&T[to]);
 	vpt[0x400] = mypte;
 	invlpg((ulong)vregs);
+	testp(i);
+}
+
+void do_rela(uint to)
+{
+	tprintf("do_rela(%d)\n", to);
+	ticktsc();
+
+	curr->state = BLOCKED;
+	assert(T[to].state == BLOCKED);
+	T[to].state = RUNNING;
+
+	ulong mypte = vpt[0x400];
+	IF_REGS *myregs = tmpg(mypte & -4096L);
+	settask(&T[to]);
+	bcopy(myregs, vregs, 4096);
+	testp(r);
 }
 
 void do_fork(uint to)
 {
-	printf("do_fork(%d)\n", to);
+	tprintf("do_fork(%d)\n", to);
+	ticktsc();
+
 	vregs->ax = 0;
 	T[to].pgd = forkpgd();
-	T[to].state = ONRECV;
+	T[to].state = BLOCKED;
+	T[to].timeout = clock() + TIME0;
 	vregs->ax = 7;
+	testp(f);
 }
 
 void syscall(uint ax, uint cx)
@@ -331,6 +387,7 @@ void syscall(uint ax, uint cx)
 	switch (ax)
 	{
 	case 0x0: return do_ipc(to);
+	case 0x1: return do_rela(to);
 	case 0x2: return do_fork(to);
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
@@ -374,12 +431,15 @@ void map_pages_in(ulong vbeg, ulong ptebeg, ulong size)
 
 extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
-void init_rd(void)
+extern void init_timer(int freq);
+void init_sys(void)
 {
+	init_timer(CLOCKS_PER_SEC);
+
 	T[0].pgd = getcr3();
-	T[0].state = 0;
+	T[0].state = RUNNING;
+	T[0].timeout = clock() + TIME0;
 	curr = &T[0];
-	curr->next = curr;
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);
@@ -388,5 +448,5 @@ void init_rd(void)
 	new_pages_in(0xfeed0000,                          0x8000          );
 	map_pages_in(0xe0000000, 0xfd000000     | 7,      800 * 600       );
 
-	move_to_user(0x10000000,      0x002,              0xfeed7f90      );
+	move_to_user(0x10000000,      0x202,              0xfeed7f90      );
 }

@@ -9,5 +9,5 @@ void set_idt
 	, int dpl
 	);
 
-#define IRQ_IDT_BEG EXP_MAX
+#define IRQ_IDT_BEG 0x20
 #define IDT_MAX 0x100
