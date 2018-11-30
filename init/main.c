@@ -5,7 +5,7 @@
 #include <struct.h>
 #include <sysc4.h>
 
-#define CLIENT 0
+#define CLIENT 1
 #define SERVER 1
 #define TRADER 2
 #define KMEM_CAP 3
@@ -139,12 +139,12 @@ void client(void) // {{{
 void client(char *ramdisk)
 {
 	UT_REGS reg;
-	for (int i = 0; i < 0x40000; i += sizeof(reg))
+	for (int i = 0xc0000; i < 0x400000; i += sizeof(reg))
 	{
+		/*reg.dx = 0x8a088b45; reg.si = 0x83088b45; reg.di = 0x0f088b45; reg.bx = 0x01088b45; reg.bp = 0x88088b45; */
 		memcpy(&reg, ramdisk + i, sizeof(reg));
+		//memset(&reg, i / 8000, sizeof(reg));
 		c4_ipc(SERVER, &reg, NULL);
-		if (i > 0x3fed4)
-			i = 0;
 	}
 }
 
