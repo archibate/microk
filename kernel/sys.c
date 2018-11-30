@@ -8,7 +8,7 @@
 #include "panic.h"
 #include "pool.h"
 #include "caps.h"
-#include "cspace.h"
+#include "clock.h"
 #include "tcb.h"
 #include <errno.h>
 
@@ -79,7 +79,6 @@ void init_vpt(void) // {{{
 #define vpt      ((V_VOLATILE ulong*)0xffc00000)
 #define vpd      ((V_VOLATILE ulong*)0xfffff000)
 #define vregs    ((V_VOLATILE IF_REGS*)0x400000)
-#define vcspace  ((V_VOLATILE CSPACE*)0x402000)
 #define getpgd() ((vpd[1023] & -4096L))
 // map/new/del/unmap_page: remain to do {{{
 void map_page(ulong va, ulong pte)
@@ -206,21 +205,7 @@ ulong forkpgd(void)
 	return pgd;
 }
 // }}}
-// clock: remain consider {{{
-#define CLOCKS_PER_SEC 100000
-typedef ulong clock_t;
-#define TIME0 4
-
-clock_t clock(void)
-{
-	uint eax, edx;
-	asm volatile ("rdtsc" : "=a" (eax), "=d" (edx) ::);
-	unsigned long long ns = eax + ((long long)edx << 32);
-	return (clock_t)(ns / (1000000000 / CLOCKS_PER_SEC));
-}
-// }}}
-#include <rdtsc.h> // performence monitoring: done {{{
-uint ticktsc(void)
+uint ticktsc(void) // performence monitoring: done {{{
 {
 	static uint last_tsc;
 	uint tsc = rdtsc();
@@ -302,51 +287,6 @@ l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
 #define NIL     63
 #define MAXTASK 62
 TCB T[MAXTASK], *curr;
-void do_smap(uint to, ulong va, ulong size, uint granted) // {{{
-{
-	tprintf("do_smap(%d, %#x, %#x, %d)\n", to, va, size, granted);
-	ticktsc();
-
-	FPAGE *fpg, **pprevn = &curr->as.fpg0;
-	while ((fpg = *pprevn))
-	{
-		tprintf("fpg: %#p %#x\n", fpg->va, fpg->size);
-		if (fpg->va <= va && va + size <= fpg->va + fpg->size)
-		{
-			tprintf("fpg confirmed\n");
-			if (granted)
-				*pprevn = fpg->next;
-			fpg->next = T[to].as.fpg0;
-			T[to].as.fpg0 = fpg;
-			testp(s);
-			return;
-		}
-		assert(fpg != fpg->next);
-		pprevn = &fpg->next;
-	}
-	assert(0);
-}
-
-void do_real(ulong va, ulong size)
-{
-	tprintf("do_real(%#x, %#x)\n", va, size);
-
-	FPAGE *fpg = curr->as.fpg0;
-	while (fpg)
-	{
-		tprintf("fpg: %#p %#x\n", fpg->va, fpg->size);
-		if (fpg->va <= va && va + size <= fpg->va + fpg->size)
-		{
-			tprintf("fpg confirmed\n");
-			for (ulong v = va, pte = fpg->pte; v < va + size; v += 4096, pte += 4096)
-				map_page(v, pte);
-			testp(r);
-			return;
-		}
-		fpg = fpg->next;
-	}
-	assert(0);
-} // }}}
 
 void settask(TCB *t)
 {
@@ -355,21 +295,57 @@ void settask(TCB *t)
 	curr = t;
 }
 
-uint do_grant(uint to, cap_t capid)
+uint do_share(uint to, cap_t capid, int granted)
 {
-	volatile CAP *cap = &vcspace->C[capid];
-	if (!VALID_CAP(cap))
+	tprintf("do_share(%d,%d,%d)\n", to, capid, granted);
+	ticktsc();
+
+	volatile CAP *cap = &vregs->C[capid];
+	if (!cap->valid)
 		return -ENOCAP;
 	CAP c = *cap;
+	if (granted)
+		cap->valid = 0;
+	TCB *old = curr;
 	settask(&T[to]);
-	vcspace->C[capid] = c;
+	vregs->C[capid] = c;
+	settask(old);
+	testp(s);
+	return 0;
+}
+
+void print_cap_info(CAP *cap)
+{
+	if (!cap->valid)
+		printf("invalidcap\n");
+	else if (cap->is_mem)
+		printf("memcap: va=%#p, pte=%#p, size=%#x\n", cap->mem.va, cap->mem.pte, cap->mem.size);
+	else
+		printf("thrcap: tcb=%#p, perm_rw=%d\n", cap->thr.tcb, cap->thr.perm_rw);
+}
+
+uint do_real(cap_t capid) // will later be removed, done in page fault instead
+{
+	tprintf("do_real(%d)\n", capid);
+	ticktsc();
+
+	volatile CAP *cap = &vregs->C[capid];
+	if (!cap->valid || !cap->is_mem)
+		return -ENOCAP;
+	for ( ulong va = cap->mem.va, pte = cap->mem.pte;
+		va < cap->mem.va + cap->mem.size;
+		va += 4096, pte += 4096 )
+		map_page(va, pte);
+	testp(r);
 	return 0;
 }
 
 #define LCMP(x, y) ((long)(x) - (long)(y))
+#define TIME0 4
 
 void on_timer(void)
 {
+	tprintf("on_timer()\n");
 	ticktsc();
 
 	clock_t t = clock();
@@ -435,19 +411,18 @@ void do_fork(uint to)
 void syscall(uint ax, uint cx, uint dx)
 {
 	uint to = cx & 0xff;
-	uint fr = (cx >> 8) & 0xff;
 	assert(to != ANY);
 	switch (ax)
 	{
 	case 0x0: return do_ipc(to);
 	case 0x1: return do_actv(to);
 	case 0x2: return do_fork(to);
-	case 0x3: return do_smap(to, dx, vregs->si, 0);
-	case 0x4: return do_smap(to, dx, vregs->si, 1);
-	case 0x5: return do_real(    dx, vregs->si);
+	case 0x3: vregs->ax = do_share(to, dx, 0); return;
+	case 0x4: vregs->ax = do_share(to, dx, 1); return;
+	case 0x5: vregs->ax = do_real (dx);        return;
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
-	default : return;
+	default : vregs->ax = -ENOSYS; return;
 	};
 }
 
@@ -487,23 +462,17 @@ void map_pages_in(ulong vbeg, ulong ptebeg, ulong size)
 
 extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
-static FPAGE vram_fpg = {
-	.va = 0xe0000000,
-	.pte = 0xfd000000|7,
-	.size = 800 * 600,
+static CAP vram_cap = {
+	.mem.va = 0xe0000000,
+	.mem.size = 800 * 600,
+	.mem.pte = 0xfd000000|7,
 };
 
-static FPAGE kmem_fpg = {
-	.va = 0xa0000000,
-	.pte = 0x000000000|7,
-	.size = 0x40000,
+static CAP kmem_cap = {
+	.mem.va = 0xa0000000,
+	.mem.size = 0x40000,
+	.mem.pte = 0x00000000|5,
 };
-
-void space_add(SPACE *as, FPAGE *fpg)
-{
-	fpg->next = as->fpg0;
-	as->fpg0 = fpg;
-}
 
 extern void init_timer(int freq);
 void init_sys(void)
@@ -513,7 +482,6 @@ void init_sys(void)
 	T[0].pgd = getcr3();
 	T[0].state = RUNNING;
 	T[0].timeout = clock() + TIME0;
-	T[0].as.fpg0 = 0;
 	curr = &T[0];
 
 	new_page    (  0x400000);
@@ -522,8 +490,8 @@ void init_sys(void)
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
 	new_pages_in(0xfeed0000,                          0x8000          );
 
-	space_add(&T[0].as, &vram_fpg);
-	space_add(&T[0].as, &kmem_fpg);
+	vregs->C[1] = kmem_cap;
+	vregs->C[2] = vram_cap;
 
 	move_to_user(0x10000000,      0x202,              0xfeed7f90      );
 }

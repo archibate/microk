@@ -1,2 +1,3 @@
 open: grant to ramfs server!
 but grant should be grant(va, size) or grant(capid)
+wanna ipc better blocking system...scheduling system...

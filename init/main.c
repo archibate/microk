@@ -8,6 +8,8 @@
 #define CLIENT 0
 #define SERVER 1
 #define TRADER 2
+#define KMEM_CAP 1
+#define VRAM_CAP 2
 
 void server(char *vram)
 {
@@ -142,21 +144,21 @@ void main(void)
 	UT_REGS reg;
 	if (!c4_fork(SERVER, &reg))
 	{ // SERVER
-		c4_real(0xe0000000, 800 * 600);
+		c4_real(VRAM_CAP);
 		server((char*)0xe0000000);
 	}
 	else
 	{ // CLIENT
-		c4_grnt(SERVER, 0xe0000000, 800 * 600);
-		if (!c4_fork(TRADER, &reg))
+		c4_share(SERVER, VRAM_CAP);
+		/*if (!c4_fork(TRADER, &reg))
 		{ // TRADER
 			if (reg.dx != 12)
 				*(int*)0xdeadc0de = 0xcafebabe;
 		}
 		else
 		{ // CLIENT
-			c4_actvw(TRADER, 12);
+			c4_actvw(TRADER, 12);*/
 			client();
-		}
+		//}
 	}
 }

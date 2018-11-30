@@ -9,11 +9,11 @@ if [[ "x$1" = "x-d" ]]; then
 	$QEMU $flgs -S -gdb tcp::1234 &
 	$GDB -x qemu.gdb
 elif [[ "x$1" = "x-t" ]]; then
-	$QEMU $flgs -chardev file,id=char0,path=/tmp/qemuout$$ -serial chardev:char0 &
-	sleep 1.0
+	$QEMU $flgs -nographic -chardev file,id=char0,path=/tmp/qemuout$$ -serial chardev:char0 &
+	sleep 0.8
 	kill %1
 	wait %1 || true 2>/dev/null
-	awk -F : -f scripts/avgtime.awk /tmp/qemuout$$ >> /tmp/c4benchsamps
+	sed '/iPXE/d' /tmp/qemuout$$ | sed '/Seti/d' | awk -F : -f scripts/avgtime.awk >> /tmp/c4benchsamps
 	rm -f /tmp/qemuout$$
 else
 	$QEMU $flgs -serial stdio

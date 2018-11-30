@@ -45,4 +45,4 @@ b panic
 b exp14
 b exp13
 b do_break_point
-bc do_smap
+bc panic
