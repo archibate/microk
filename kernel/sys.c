@@ -205,6 +205,8 @@ ulong forkpgd(void)
 	return pgd;
 }
 // }}}
+//#define TPR
+#define PMR
 uint ticktsc(void) // performence monitoring: done {{{
 {
 	static uint last_tsc;
@@ -213,12 +215,12 @@ uint ticktsc(void) // performence monitoring: done {{{
 	last_tsc = tsc;
 	return res;
 }
-#if 1
+#ifdef TPR
 #define tprintf(...) printf(__VA_ARGS__)
 #else
 #define tprintf(...)
 #endif
-#if 1
+#ifdef PMR
 #define testp(x) do { ulong t = ticktsc(); clock_t c = clock(); printf(#x":%d:%d\n", c, t); ticktsc(); } while (0)
 #else
 #define testp(x)
@@ -398,17 +400,19 @@ int do_share(cap_t toid, cap_t capid, int granted)
 
 	TCB *to = getcaptcb(toid);
 	if (!to) { printf("-ESRCH\n"); return -ESRCH; }
+
+	assert(to != curr);
 	assert(to->state == BLOCKED);
+
 	V_VOLATILE CAP *cap = &vregs->C[capid];
 	if (!cap->valid)
 	{ printf("-ENOCAP\n"); return -ENOCAP; }
 	CAP c = *cap;
 	if (granted)
 		cap->valid = 0;
-	TCB *old = curr;
+	//TCB *old = curr;
 	settask(to);
 	vregs->C[capid] = c;
-	settask(old);
 	return 0;
 }
 
@@ -463,16 +467,17 @@ int do_fork(cap_t toid, uint mid)
 	return 7;
 }
 
-void syscall(uint ax, uint cx, uint dx)
+void syscall(uint ax, uint cx)
 {
+	int cl = cx & 0xff, ch = (cx >> 8) & 0xff;
 	switch (ax)
 	{
-	case 0x0: vregs->ax = do_ipc(cx);  return;
-	case 0x1: vregs->ax = do_actv(cx); return;
-	case 0x2: vregs->ax = do_fork(cx, 1); return;
-	case 0x3: vregs->ax = do_share(cx, dx, 0); return;
-	case 0x4: vregs->ax = do_share(cx, dx, 1); return;
-	case 0x5: vregs->ax = do_real (dx);        return;
+	case 0x0: vregs->ax = do_ipc(cl);  return;
+	case 0x1: vregs->ax = do_actv(cl); return;
+	case 0x2: vregs->ax = do_fork(cl, 1); return;
+	case 0x3: vregs->ax = do_share(cl, ch, 0); return;
+	case 0x4: vregs->ax = do_share(cl, ch, 1); return;
+	case 0x5: vregs->ax = do_real (ch); return;
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
 	default : vregs->ax = -ENOSYS; return;

@@ -13,130 +13,139 @@
 
 void server(char *vram)
 {
-	while (1)
+	UT_REGS reg;
+	for (int i = 0; i < 800 * 600; i += sizeof(reg))
 	{
-		uint max = c4_recvw(CLIENT);
-		for (int i = 0; i < 800 * 600; i++)
-			vram[i] = i % max;
-		//*(int*)0xdeadc0de = 0xcafebabe;
+		c4_ipc(CLIENT, NULL, &reg);
+		memcpy(vram + i, &reg, sizeof(reg));
 	}
+	*(int*)0xdeadc0de = 0xcafebabe;
 }
 
+/*
 void client(void) // {{{
 {
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
 #if 0
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 64);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 32);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 86);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 64);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 32);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 86);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
 #endif
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 16);
-	c4_sendw(SERVER, 64);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 16);
+	c4_ipcw(SERVER, 64);
 } // }}}
-
-void trader(void)
+*/
+void client(char *ramdisk)
 {
+	UT_REGS reg;
+	for (int i = 0; i < 0x40000; i += sizeof(reg))
+	{
+		memcpy(&reg, ramdisk + i, sizeof(reg));
+		c4_ipc(SERVER, &reg, NULL);
+		if (i > 0x3fed4)
+			i = 0;
+	}
 }
 
 void main(void)
@@ -149,8 +158,6 @@ void main(void)
 	}
 	else
 	{ // CLIENT
-		c4_share(SERVER, VRAM_CAP);
-		c4_share(SERVER, CLIENT);
 		/*if (!c4_fork(TRADER, &reg))
 		{ // TRADER
 			if (reg.dx != 12)
@@ -159,7 +166,8 @@ void main(void)
 		else
 		{ // CLIENT
 			c4_actvw(TRADER, 12);*/
-			client();
+			c4_real(KMEM_CAP);
+			client((char*)0xa0000000);
 		//}
 	}
 }
