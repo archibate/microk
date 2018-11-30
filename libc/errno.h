@@ -133,3 +133,4 @@
 #define ENOTRECOVERABLE	131	// State not recoverable
 #define ERFKILL	132	// Operation not possible due to RF-kill
 #define EHWPOISON	133	// Memory page has hardware error
+#define ENOCAP	134	// No such capability

@@ -135,7 +135,6 @@ void client(void) // {{{
 
 void trader(void)
 {
-	*(int*)0xdeadc0de = 0xcafebabe;
 }
 
 void main(void)
@@ -151,7 +150,8 @@ void main(void)
 		c4_grnt(SERVER, 0xe0000000, 800 * 600);
 		if (!c4_fork(TRADER, &reg))
 		{ // TRADER
-			trader();
+			if (reg.dx != 12)
+				*(int*)0xdeadc0de = 0xcafebabe;
 		}
 		else
 		{ // CLIENT

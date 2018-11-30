@@ -7,3 +7,4 @@
 #define EOF (-1)
 #endif
 #define offsetof(type, memb) ((unsigned long) &(((type *) 0)->memb))
+#define ARRAY_SIZEOF(a) (sizeof(a) / sizeof((a)[0]))

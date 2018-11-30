@@ -1,31 +1,38 @@
 // vim: fdm=marker
 #include <struct.h>
 #include <memory.h>
+#include <stddef.h>
 #include <types.h>
 #include "print.h"
 #include "ptregs.h"
 #include "panic.h"
+#include "pool.h"
+#include "caps.h"
+#include "cspace.h"
+#include "tcb.h"
+#include <errno.h>
 
-#define PPGMAX 1024
-
-ulong ppgstk[PPGMAX], *ppgsp = ppgstk;
+// ppgpool: done {{{
+POOL_TYPE(ulong, 1024) ppgpool;
 
 ulong ppage(void)
 {
-	return *--ppgsp;
+	return POOL_ALLOC(&ppgpool);
 }
 
 void free_ppg(ulong pa)
 {
-	*ppgsp++ = pa;
+	POOL_FREE(&ppgpool, pa);
 }
 
 void init_ppg(void)
 {
-	for (ulong pa = 0x400000; pa < 0x400000 + PPGMAX * 4096; pa += 4096)
-		free_ppg(pa);
+	POOL_INIT(&ppgpool);
+	for (ulong pa = 0x400000; pa < 0x400000 + POOL_SIZE(&ppgpool) * 4096; pa += 4096)
+		POOL_FREE(&ppgpool, pa);
 }
-
+// }}}
+// mmu asm operations: done {{{
 void invlpg(ulong va)
 {
 	asm volatile ("invlpg (%0)" :: "r" (va) : "memory");
@@ -49,13 +56,8 @@ void enacr0(ulong flags)
 	asm volatile ("mov %%cr0,%0" : "=r" (cr0) ::);
 	asm volatile ("mov %0,%%cr0" :: "r" (cr0 | flags) : "memory");
 }
-
-#define vpt ((volatile ulong*)0xffc00000)
-#define vpd ((volatile ulong*)0xfffff000)
-
-#define getpgd() ((vpd[1023] & -4096L))
-
-void init_vpt(void)
+// }}}
+void init_vpt(void) // {{{
 {
 	ulong *pgd = (ulong*)ppage();
 	ulong *pgt = (ulong*)ppage();
@@ -72,8 +74,14 @@ void init_vpt(void)
 
 	setcr3((ulong)pgd);
 	enacr0(0x80000000);
-}
-
+} // }}}
+#define V_VOLATILE volatile
+#define vpt      ((V_VOLATILE ulong*)0xffc00000)
+#define vpd      ((V_VOLATILE ulong*)0xfffff000)
+#define vregs    ((V_VOLATILE IF_REGS*)0x400000)
+#define vcspace  ((V_VOLATILE CSPACE*)0x402000)
+#define getpgd() ((vpd[1023] & -4096L))
+// map/new/del/unmap_page: remain to do {{{
 void map_page(ulong va, ulong pte)
 {
 	uint pdi = va >> 22;
@@ -116,19 +124,20 @@ ulong del_page(ulong va)
 	vpt[va >> 12] = 0;
 	return 1;
 }
-
-#define TMPGMAX 6
-ulong tmpgvastk[TMPGMAX], *tmpgvasp = tmpgvastk;
+// }}}
+// tmpgpool: done {{{
+POOL_TYPE(ulong, 6) tmpgpool;
 
 void init_tmpg(void)
 {
-	for (ulong va = 0x120000; va < 0x120000 + TMPGMAX * 4096; va += 4096)
-		*tmpgvasp++ = va;
+	POOL_INIT(&tmpgpool);
+	for (ulong va = 0x120000; va < 0x120000 + POOL_SIZE(&tmpgpool) * 4096; va += 4096)
+		POOL_FREE(&tmpgpool, va);
 }
 
 void *tmpg(ulong pa)
 {
-	ulong va = *--tmpgvasp;
+	ulong va = POOL_ALLOC(&tmpgpool);
 	map_page(va, pa | 3);
 	return (void*)va;
 }
@@ -137,9 +146,10 @@ void untmpg(void *v)
 {
 	ulong pte = unmap_page((ulong)v);
 	assert(pte & 1);
-	*tmpgvasp++ = (ulong)v;
+	POOL_FREE(&tmpgpool, (ulong)v);
 }
-
+// }}}
+// pgd operations: remain wuli {{{
 void newpgd(void)
 {
 	ulong pgd = ppage();
@@ -195,52 +205,8 @@ ulong forkpgd(void)
 	setcr3(opgd);
 	return pgd;
 }
-
-#ifdef macker // {{{
-
-// https://github.com/jserv/codezero/blob/master/docs/Codezero_Reference_Manual.pdf
-l4_send   (to,   flags) := l4_ipc(to,   L4_NIL, flags);
-l4_recieve(from, flags) := l4_ipc(L4_NIL, from, flags);
-
-l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
-
-#endif // }}}
-#if 0 // {{{
-// theses functions, changes the `buffering page`: 0x400000
-void recvregs(ulong pgd)
-{
-	ulong *pd  = tmpg(pgd);
-	ulong *pt  = (ulong*)(pd[1] & -4096L);
-	ulong pte  =         (pt[0] & -4096L);
-	vpt[0x400] = pte;
-	untmpg(pd);
-}
-
-void sendregs(ulong pgd)
-{
-	ulong *pd  = tmpg(pgd);
-	ulong pgt  = pd[1] & -4096L;
-	ulong *pt  = tmpg(pgt);
-	pt[0]      = vpt[0x400] | 7;
-	untmpg(pt);
-	untmpg(pd);
-}
-
-void sdrvregs(ulong pgd)
-{
-	ulong *pd  = tmpg(pgd);
-	ulong pgt  = pd[1] & -4096L;
-	ulong *pt  = tmpg(pgt);
-	ulong pte  = pt[0] & -4096L;
-	pt[0]      = vpt[0x400];
-	vpt[0x400] = pte;
-	untmpg(pt);
-	untmpg(pd);
-}
-#endif // }}}
-#define vregs   ((volatile IF_REGS*)0x400000)
-#define oldregs ((volatile IF_REGS*)0x402000)
-
+// }}}
+// clock: remain consider {{{
 #define CLOCKS_PER_SEC 100000
 typedef ulong clock_t;
 #define TIME0 4
@@ -252,7 +218,8 @@ clock_t clock(void)
 	unsigned long long ns = eax + ((long long)edx << 32);
 	return (clock_t)(ns / (1000000000 / CLOCKS_PER_SEC));
 }
-#include <rdtsc.h> // {{{
+// }}}
+#include <rdtsc.h> // performence monitoring: done {{{
 uint ticktsc(void)
 {
 	static uint last_tsc;
@@ -287,46 +254,55 @@ gcc -O3:
 	1:  20.1 /  20.2
 	2:   4.9 /   4.9
 	3:   6.6 /   6.6
+#if 0 // {{{
+// theses functions, changes the `buffering page`: 0x400000
+void recvregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong *pt  = (ulong*)(pd[1] & -4096L);
+	ulong pte  =         (pt[0] & -4096L);
+	vpt[0x400] = pte;
+	untmpg(pd);
+}
+
+void sendregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong pgt  = pd[1] & -4096L;
+	ulong *pt  = tmpg(pgt);
+	pt[0]      = vpt[0x400] | 7;
+	untmpg(pt);
+	untmpg(pd);
+}
+
+void sdrvregs(ulong pgd)
+{
+	ulong *pd  = tmpg(pgd);
+	ulong pgt  = pd[1] & -4096L;
+	ulong *pt  = tmpg(pgt);
+	ulong pte  = pt[0] & -4096L;
+	pt[0]      = vpt[0x400];
+	vpt[0x400] = pte;
+	untmpg(pt);
+	untmpg(pd);
+}
+#ifdef macker // {{{
+
+// https://github.com/jserv/codezero/blob/master/docs/Codezero_Reference_Manual.pdf
+l4_send   (to,   flags) := l4_ipc(to,   L4_NIL, flags);
+l4_recieve(from, flags) := l4_ipc(L4_NIL, from, flags);
+
+l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
+
+#endif // }}}
+#endif // }}}
 #endif // }}}
 
-#define RUNNING 1
-#define BLOCKED 2
-#define ONRECV  3
-#define ONSEND  4
 #define ANY     62
 #define NIL     63
 #define MAXTASK 62
-
-STRUCT(FPAGE)
-{
-	FPAGE *next;
-	ulong va, size, pte;
-	/*union {
-		struct {
-			ulong base;
-			uint shift : 16;
-			uint rwx : 4;
-		};
-		uint raw[2];
-	};*/
-};
-
-STRUCT(SPACE)
-{
-	FPAGE *fpg0;
-};
-
-STRUCT(TCB)
-{
-	ulong pgd;
-	clock_t timeout;
-	uint state;
-	SPACE as;
-};
-
 TCB T[MAXTASK], *curr;
-
-void do_smap(uint to, ulong va, ulong size, uint granted)
+void do_smap(uint to, ulong va, ulong size, uint granted) // {{{
 {
 	tprintf("do_smap(%d, %#x, %#x, %d)\n", to, va, size, granted);
 	ticktsc();
@@ -370,13 +346,24 @@ void do_real(ulong va, ulong size)
 		fpg = fpg->next;
 	}
 	assert(0);
-}
+} // }}}
 
 void settask(TCB *t)
 {
 	//printf("settask: %p\n", t);
 	setcr3(t->pgd);
 	curr = t;
+}
+
+uint do_grant(uint to, cap_t capid)
+{
+	volatile CAP *cap = &vcspace->C[capid];
+	if (!VALID_CAP(cap))
+		return -ENOCAP;
+	CAP c = *cap;
+	settask(&T[to]);
+	vcspace->C[capid] = c;
+	return 0;
 }
 
 #define LCMP(x, y) ((long)(x) - (long)(y))
@@ -422,14 +409,13 @@ void do_actv(uint to)
 	tprintf("do_actv(%d)\n", to);
 	ticktsc();
 
-	curr->state = BLOCKED;
 	assert(T[to].state == BLOCKED);
 	T[to].state = RUNNING;
 
 	ulong mypte = vpt[0x400];
 	IF_REGS *myregs = tmpg(mypte & -4096L);
 	settask(&T[to]);
-	bcopy(myregs, vregs, 4096);
+	bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
 	testp(a);
 }
 
@@ -532,6 +518,7 @@ void init_sys(void)
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);
+	new_page    (  0x402000);
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
 	new_pages_in(0xfeed0000,                          0x8000          );
 

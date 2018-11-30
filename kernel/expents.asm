@@ -28,7 +28,7 @@ exp_common:
 	;mov ebp, esp
 
 	mov eax, [esp + 40] ; do_exp address
-	sub esp, 4064
+	sub esp, 4072
 	call eax
 
 	;add esp, 8

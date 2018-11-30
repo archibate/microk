@@ -29,7 +29,7 @@ irq_common:
 	;mov ebp, esp
 
 	mov eax, [esp + 44] ; irq index
-	sub esp, 4064
+	sub esp, 4072
 	call [irq_table + eax * 4]
 
 	;add esp, 8

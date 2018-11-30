@@ -12,7 +12,7 @@ __syscall_entry:
 	push ds
 	push es
 	pushad
-	sub esp, 4064
+	sub esp, 4072
 	push edx
 	push ecx
 	push eax
@@ -22,7 +22,7 @@ __syscall_entry:
 	call syscall
 	add esp, 12
 __int_return:
-	add esp, 4064
+	add esp, 4072
 	;mov [esp + 28], eax
 	popad
 	pop es

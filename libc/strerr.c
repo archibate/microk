@@ -134,6 +134,7 @@ const char *err_msgs[] = {
 	"State not recoverable",
 	"Operation not possible due to RF-kill",
 	"Memory page has hardware error",
+	"No such capability",
 };
 
 const char *strerror(int err)
