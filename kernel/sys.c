@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <stddef.h>
 #include <types.h>
+#include <c4defs.h>
 #include "print.h"
 #include "ptregs.h"
 #include "panic.h"
@@ -75,7 +76,7 @@ void init_vpt(void) // {{{
 	setcr3((ulong)pgd);
 	enacr0(0x80000000);
 } // }}}
-#define V_VOLATILE volatile
+#define V_VOLATILE //volatile
 #define vpt      ((V_VOLATILE ulong*)0xffc00000)
 #define vpd      ((V_VOLATILE ulong*)0xfffff000)
 #define vregs    ((V_VOLATILE IF_REGS*)0x400000)
@@ -319,11 +320,7 @@ void on_timer(void)
 			settask(&T[id]);
 	}
 	testp(t);
-}*/
-void on_timer(void)
-{
-	tprintf("on_timer()\n");
-}// }}}
+}*/// }}}
 // {{{
 /*int do_recv(cap_t frid)
 {
@@ -390,13 +387,12 @@ int do_share(cap_t toid, cap_t capid, cap_t hiscid, int granted)
 	assert(toid != 0);
 
 	TCB *to = getcaptcb(toid);
-	if (!to) { printf("-ESRCH\n"); return -ESRCH; }
+	if (!to) return -ESRCH;
 
 	assert(to->state == BLOCKED);
 
 	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!cap->valid)
-	{ printf("-ENOCAP\n"); return -ENOCAP; }
+	if (!cap->valid) return -ENOCAP;
 	CAP c = *cap;
 	if (granted)
 		cap->valid = 0;
@@ -405,23 +401,117 @@ int do_share(cap_t toid, cap_t capid, cap_t hiscid, int granted)
 	return 0;
 }
 
-int do_ipc(cap_t toid)
+void schedule(void)
 {
-	tprintf("do_ipc(toid=%d)\n", toid);
-	assert(toid != 0);
-	ticktsc();
-	TCB *to = getcaptcb(toid);
-	if (!to) { printf("-ESRCH\n"); return -ESRCH; }
+	tprintf("schedule()\n");
+	for (int i = 0; i < MAXTASK; i++) {
+		if (T[i].state == RUNNING) {
+			if (&T[i] != vcurr)
+				settask(&T[i]);
+			return;
+		}
+	}
+	panic("schedule(): no runnable task!\n");
+}
+void on_timer(void)
+{
+	return; // XXX
+	tprintf("on_timer()\n");
+	schedule();
+}
 
-	assert(to->state == BLOCKED);
-	to->state = RUNNING;
-	vcurr->state = BLOCKED;
-
-	ulong mypte = vpt[0x400];
-	settask(to);
-	vpt[0x400] = mypte;
+#define getregp()     (vpt[0x400])
+static inline void allocregp(void)
+{
+	vpt[0x400] = ppage() | 7;
 	invlpg((ulong)vregs);
-	testp(i);
+}
+static inline void fsetregp(ulong pte)
+{
+	free_ppg(vpt[0x400] & -4096L);
+	vpt[0x400] = pte;
+	invlpg((ulong)vregs);
+}
+
+/*todo:int do_retnwait(void)//{{{
+{
+	TCB *from = vcurr->recving;
+	if (!from)
+		return -ENCALL;
+	if (from->state != WAITRET)
+		return -ENWAIT;
+	tprintf("ipc_retnwait: returning\n");
+	vcurr->recving = from->next;
+	allocregp();
+	from->state = RUNNING;
+	settask(from);
+	return 0;
+}*///}}}
+
+int do_call(cap_t toid)
+{
+	tprintf("do_call(toid=%d)\n", toid);
+	ticktsc();
+
+	assert(toid != 0);
+	TCB *to = getcaptcb(toid);
+	if (!to) return -ESRCH;
+	if (to->state == ONRECV) {
+		tprintf("ipc_call: direct send\n");
+		vcurr->state = WAITRET;
+		ulong regp = getregp();
+		to->state = RUNNING;
+		settask(to);
+		fsetregp(regp);
+	} else {
+		tprintf("ipc_call: block on send\n");
+		vcurr->regp = getregp();
+		vcurr->next = to->recving;
+		to->recving = vcurr;
+		vcurr->state = ONSEND;
+		if (to->state == RUNNING)
+			settask(to);
+	}
+	testp(c);
+	return 0;
+}
+
+int do_wait(void)
+{
+	tprintf("do_wait\n");
+	ticktsc();
+
+	TCB *from = vcurr->recving;
+	if (from) {
+		tprintf("ipc_wait: direct recv\n");
+		assert(from->state == ONSEND);
+		from->state = WAITRET;
+		fsetregp(from->regp);
+	} else {
+		tprintf("ipc_wait: block on recv\n");
+		vcurr->state = ONRECV;
+		schedule();
+	}
+	testp(w);
+	return 0;
+}
+
+int do_retn(cap_t toid)
+{
+	tprintf("do_retn(toid=%d)\n", toid);
+	ticktsc();
+
+	TCB *from = toid ? getcaptcb(toid) : vcurr->recving;
+	if (!from)
+		return -ESRCH;
+	if (from->state != WAITRET)
+		return -ENWAIT;
+	tprintf("ipc_retn: returning\n");
+	if (toid) vcurr->recving = from->next;
+	allocregp();
+	from->state = RUNNING;
+	settask(from);
+	testp(r);
 	return 0;
 }
 
@@ -439,6 +529,10 @@ int do_actv(cap_t toid)
 	settask(to);
 	bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
 	return 0;
+}
+
+int do_softirq(int irq)
+{ // TODO
 }
 
 int do_fork(cap_t toid, uint mid)
@@ -469,16 +563,19 @@ void syscall(uint ax, uint cx)
 {
 	uchar cl = cx & 0xff, ch = (cx >> 8) & 0xff;
 	uchar al = ax & 0xff, ah = (ax >> 8) & 0xff;
+	assert(vcurr->state == RUNNING);
 	switch (al)
 	{
-	case 0x0: vregs->ax = do_ipc(cl);  return;
-	case 0x1: vregs->ax = do_actv(cl); return;
-	case 0x2: vregs->ax = do_fork(cl, 1); return;
-	case 0x3: vregs->ax = do_share(cl, ch, ah, 0); return;
-	case 0x4: vregs->ax = do_share(cl, ch, ah, 1); return;
-	case 0x5: vregs->ax = do_real (ch); return;
-	case 0x8: printf("c4_print: cx=%d\n", cx); return;
-	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
+	case C4_CALL : vregs->ax = do_call(cl);  return;
+	case C4_WAIT : vregs->ax = do_wait(  ); return;
+	case C4_RETN : vregs->ax = do_retn(cl); return;
+	case C4_FORK : vregs->ax = do_fork(cl, 1); return;
+	case C4_ACTV : vregs->ax = do_actv(cl); return;
+	case C4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); return;
+	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); return;
+	case C4_REAL : vregs->ax = do_real (ch); return;
+	case 0x8     : printf("c4_print: cx=%d\n", cx); return;
+	case 0x9     : printf("halting...\n"); asm volatile ("cli; hlt");
 	default : vregs->ax = -ENOSYS; return;
 	};
 }

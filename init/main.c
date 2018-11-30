@@ -16,8 +16,9 @@ void server(char *vram)
 	UT_REGS reg;
 	for (int i = 0; i < 800 * 600; i += sizeof(reg))
 	{
-		c4_ipc(CLIENT, NULL, &reg);
+		c4_wait(CLIENT, &reg);
 		memcpy(vram + i, &reg, sizeof(reg));
+		c4_retn(CLIENT, NULL);
 	}
 	*(int*)0xdeadc0de = 0xcafebabe;
 }
@@ -141,10 +142,10 @@ void client(char *ramdisk)
 	UT_REGS reg;
 	for (int i = 0xc0000; i < 0x400000; i += sizeof(reg))
 	{
-		reg.dx = 0x8a088b45; reg.si = 0x83088b45; reg.di = 0x0f088b45; reg.bx = 0x01088b45; reg.bp = 0x88088b45;
+		//reg.dx = 0x8a088b45; reg.si = 0x83088b45; reg.di = 0x0f088b45; reg.bx = 0x01088b45; reg.bp = 0x88088b45;
 		memcpy(&reg, ramdisk + i, sizeof(reg));
 		//memset(&reg, i / 8000, sizeof(reg));
-		c4_ipc(SERVER, &reg, NULL);
+		c4_call(SERVER, &reg, NULL);
 	}
 }
 
@@ -166,6 +167,7 @@ void main(void)
 		else
 		{ // SERVER
 			c4_actvw(TRADER, 12);*/
+			c4_actv(CLIENT, &reg);
 			c4_real(VRAM_CAP);
 			server((char*)0xe0000000);
 		//}
