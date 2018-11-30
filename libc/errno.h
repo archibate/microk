@@ -40,7 +40,7 @@
 #define ENOSYS	38	// Invalid system call number
 #define ENOTEMPTY	39	// Directory not empty
 #define ELOOP	40	// Too many symbolic links encountered
-#define EWOULDBLOCK	41	// Operation would block (EAGAIN)
+#define EWBLOCK	41	// Operation would block (EAGAIN)
 #define ENOMSG	42	// No message of desired type
 #define EIDRM	43	// Identifier removed
 #define ECHRNG	44	// Channel number out of range

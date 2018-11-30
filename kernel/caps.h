@@ -28,6 +28,7 @@ STRUCT(MEM_CAP)
 	ulong size;
 };
 
+#include "tcb.h"
 STRUCT(THR_CAP)
 {
 	struct {
@@ -36,7 +37,7 @@ STRUCT(THR_CAP)
 		uint mbz : 1;
 		uint reserved : 29;
 	} __attribute__((packed));
-	struct TCB *tcb;
+	TCB *tcb;
 };
 
 STRUCT(CAP)
@@ -61,4 +62,10 @@ static inline void __unused_func1(void)
 	};
 }
 
-#define VALID_CAP(cap) ((cap)->valid)
+static void setup_thr_cap(CAP *cap, TCB *tcb, int perm_rw)
+{
+	cap->thr.valid = 1;
+	cap->thr.mbz = 0;
+	cap->thr.tcb = tcb;
+	cap->thr.perm_rw = perm_rw;
+}

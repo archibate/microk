@@ -14,11 +14,13 @@ extern uint c4_sysux(uint ax, uint cx, const void *wr, const void *rd);
 #define C4_SHARE 3
 #define C4_GRANT 4
 #define C4_REAL  5
-#define C4_ANY   62
-#define C4_NIL   63
+#define C4_ANY   255
+#define C4_NIL   255
 
-#define c4_fork(to, reg)   c4_sysux(C4_FORK, to, NULL, reg)
+//#define c4_send(to, reg)   c4_sysux(C4_SEND, to, reg, NULL)
+//#define c4_recv(to, reg)   c4_sysux(C4_RECV, to, NULL, reg)
 #define c4_actv(to, reg)   c4_sysux(C4_ACTV, to, reg, NULL)
+#define c4_fork(to, reg)   c4_sysux(C4_FORK, to, NULL, reg)
 #define c4_ipc(to, sd, rv) c4_sysux(C4_IPC,  to,  sd , rv )
 
 static inline
@@ -41,6 +43,22 @@ void c4_actvw(uint to, uint w)
 	c4_actv(to, &reg);
 }
 
+/*static inline
+void c4_sendw(uint to, uint w)
+{
+	UT_REGS reg;
+	reg.dx = w;
+	c4_send(to, &reg);
+}
+
+static inline
+uint c4_recvw(uint to)
+{
+	UT_REGS reg;
+	c4_recv(to, &reg);
+	return reg.dx;
+}*/
+
 static inline
 uint c4_ipcw(uint to, uint w)
 {
@@ -49,3 +67,5 @@ uint c4_ipcw(uint to, uint w)
 	c4_ipc(to, &reg, &reg);
 	return reg.dx;
 }
+#define c4_sendw(to, w) ((void)c4_ipcw(to, w))
+#define c4_recvw(to)    (c4_ipcw(to, 12))

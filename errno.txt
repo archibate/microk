@@ -38,7 +38,7 @@
 	ENOSYS		: Invalid system call number
 	ENOTEMPTY	: Directory not empty
 	ELOOP		: Too many symbolic links encountered
-	EWOULDBLOCK	: Operation would block (EAGAIN)
+	EWBLOCK		: Operation would block (EAGAIN)
 	ENOMSG		: No message of desired type
 	EIDRM		: Identifier removed
 	ECHRNG		: Channel number out of range

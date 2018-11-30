@@ -213,7 +213,7 @@ uint ticktsc(void) // performence monitoring: done {{{
 	last_tsc = tsc;
 	return res;
 }
-#if 0
+#if 1
 #define tprintf(...) printf(__VA_ARGS__)
 #else
 #define tprintf(...)
@@ -283,35 +283,17 @@ l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
 #endif // }}}
 #endif // }}}
 
-#define ANY     62
-#define NIL     63
-#define MAXTASK 62
+#define ANY     255
+#define NIL     255
+#define MAXTASK 128
+ulong M[MAXTASK];
 TCB T[MAXTASK], *curr;
 
 void settask(TCB *t)
 {
 	//printf("settask: %p\n", t);
-	setcr3(t->pgd);
+	setcr3(M[t->mid]);
 	curr = t;
-}
-
-uint do_share(uint to, cap_t capid, int granted)
-{
-	tprintf("do_share(%d,%d,%d)\n", to, capid, granted);
-	ticktsc();
-
-	volatile CAP *cap = &vregs->C[capid];
-	if (!cap->valid)
-		return -ENOCAP;
-	CAP c = *cap;
-	if (granted)
-		cap->valid = 0;
-	TCB *old = curr;
-	settask(&T[to]);
-	vregs->C[capid] = c;
-	settask(old);
-	testp(s);
-	return 0;
 }
 
 void print_cap_info(CAP *cap)
@@ -321,26 +303,9 @@ void print_cap_info(CAP *cap)
 	else if (cap->is_mem)
 		printf("memcap: va=%#p, pte=%#p, size=%#x\n", cap->mem.va, cap->mem.pte, cap->mem.size);
 	else
-		printf("thrcap: tcb=%#p, perm_rw=%d\n", cap->thr.tcb, cap->thr.perm_rw);
+		printf("thrcap: tcb=%#p, perm_rw=%d\n", &cap->thr.tcb, cap->thr.perm_rw);
 }
-
-uint do_real(cap_t capid) // will later be removed, done in page fault instead
-{
-	tprintf("do_real(%d)\n", capid);
-	ticktsc();
-
-	volatile CAP *cap = &vregs->C[capid];
-	if (!cap->valid || !cap->is_mem)
-		return -ENOCAP;
-	for ( ulong va = cap->mem.va, pte = cap->mem.pte;
-		va < cap->mem.va + cap->mem.size;
-		va += 4096, pte += 4096 )
-		map_page(va, pte);
-	testp(r);
-	return 0;
-}
-
-#define LCMP(x, y) ((long)(x) - (long)(y))
+/*#define LCMP(x, y) ((long)(x) - (long)(y)) {{{
 #define TIME0 4
 
 void on_timer(void)
@@ -362,63 +327,151 @@ void on_timer(void)
 			settask(&T[id]);
 	}
 	testp(t);
+}*/
+void on_timer(void)
+{
+	tprintf("on_timer()\n");
+}// }}}
+// {{{
+/*int do_recv(cap_t frid)
+{
+	if (frid == ANY) {
+		curr->recving = 0;
+	} else {
+		curr->recving = getcaptcb(frid);
+		if (!curr->recving)
+			return -ENOCAP;
+	}
+
+	curr->state = ONRECV;
+	ulong mypte = vpt[0x400];
+	settask(curr->recving);
+	vpt[0x400] = mypte;
+	return 0;
 }
 
-void do_ipc(uint to)
+int recving_match(TCB *recving)
 {
-	tprintf("do_ipc(to=%d)\n", to);
-	ticktsc();
+	return (recving == curr || !recving);
+}
 
+int do_send(cap_t toid)
+{
+	TCB *to = getcaptcb(toid);
+	if (!to)
+		return -ENOCAP;
+
+	assert(to->state == ONRECV && recving_match(to->recving));
+
+	to->state = RUNNING;
+	to->recving = 0;
+	settask(to);
+	return 0;
+}*/
+// }}}
+TCB *getcaptcb(cap_t capid)
+{
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid || cap->is_mem)
+		return 0;
+	return cap->thr.tcb;
+}
+
+int do_real(cap_t capid) // todo: will later to be removed, done in page fault instead
+{
+	tprintf("do_real(%d)\n", capid);
+	//assert(getcaptcb(0)->state == BLOCKED);
+
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid || !cap->is_mem)
+		return -ENOCAP;
+	for ( ulong va = cap->mem.va, pte = cap->mem.pte;
+		va < cap->mem.va + cap->mem.size;
+		va += 4096, pte += 4096 )
+		map_page(va, pte);
+	return 0;
+}
+
+int do_share(cap_t toid, cap_t capid, int granted)
+{
+	tprintf("do_share(%d,%d,%d)\n", toid, capid, granted);
+
+	TCB *to = getcaptcb(toid);
+	if (!to) { printf("-ESRCH\n"); return -ESRCH; }
+	assert(to->state == BLOCKED);
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid)
+	{ printf("-ENOCAP\n"); return -ENOCAP; }
+	CAP c = *cap;
+	if (granted)
+		cap->valid = 0;
+	TCB *old = curr;
+	settask(to);
+	vregs->C[capid] = c;
+	settask(old);
+	return 0;
+}
+
+int do_ipc(cap_t toid)
+{
+	tprintf("do_ipc(toid=%d)\n", toid);
+	ticktsc();
+	TCB *to = getcaptcb(toid);
+	if (!to) { printf("-ESRCH\n"); return -ESRCH; }
+
+	assert(to != curr);
+	assert(to->state == BLOCKED);
+	to->state = RUNNING;
 	curr->state = BLOCKED;
-	assert(T[to].state == BLOCKED);
-	T[to].state = RUNNING;
 
 	ulong mypte = vpt[0x400];
-	settask(&T[to]);
+	settask(to);
 	vpt[0x400] = mypte;
 	invlpg((ulong)vregs);
 	testp(i);
+	return 0;
 }
 
-void do_actv(uint to)
+int do_actv(cap_t toid)
 {
-	tprintf("do_actv(%d)\n", to);
-	ticktsc();
+	tprintf("do_actv(%d)\n", toid);
+	TCB *to = getcaptcb(toid);
+	if (!to) return -ESRCH;
 
-	assert(T[to].state == BLOCKED);
-	T[to].state = RUNNING;
+	assert(to->state == BLOCKED);
+	to->state = RUNNING;
+	curr->state = BLOCKED;
 
 	ulong mypte = vpt[0x400];
 	IF_REGS *myregs = tmpg(mypte & -4096L);
-	settask(&T[to]);
+	settask(to);
 	bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
-	testp(a);
+	return 0;
 }
 
-void do_fork(uint to)
+int do_fork(cap_t toid, uint mid)
 {
-	tprintf("do_fork(%d)\n", to);
-	ticktsc();
+	tprintf("do_fork(%d,%d)\n", toid, mid);
+	TCB *to = &T[mid];
+
+	setup_thr_cap((CAP*)&vregs->C[toid], to, 1);
 
 	vregs->ax = 0;
-	T[to].pgd = forkpgd();
-	T[to].state = BLOCKED;
-	T[to].timeout = clock() + TIME0;
-	vregs->ax = 7;
-	testp(f);
+	M[mid] = forkpgd();
+	to->mid = mid;
+	to->state = BLOCKED;
+	return 7;
 }
 
 void syscall(uint ax, uint cx, uint dx)
 {
-	uint to = cx & 0xff;
-	assert(to != ANY);
 	switch (ax)
 	{
-	case 0x0: return do_ipc(to);
-	case 0x1: return do_actv(to);
-	case 0x2: return do_fork(to);
-	case 0x3: vregs->ax = do_share(to, dx, 0); return;
-	case 0x4: vregs->ax = do_share(to, dx, 1); return;
+	case 0x0: vregs->ax = do_ipc(cx);  return;
+	case 0x1: vregs->ax = do_actv(cx); return;
+	case 0x2: vregs->ax = do_fork(cx, 1); return;
+	case 0x3: vregs->ax = do_share(cx, dx, 0); return;
+	case 0x4: vregs->ax = do_share(cx, dx, 1); return;
 	case 0x5: vregs->ax = do_real (dx);        return;
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
@@ -479,10 +532,7 @@ void init_sys(void)
 {
 	init_timer(CLOCKS_PER_SEC);
 
-	T[0].pgd = getcr3();
-	T[0].state = RUNNING;
-	T[0].timeout = clock() + TIME0;
-	curr = &T[0];
+	M[0] = getcr3();
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);
@@ -490,8 +540,13 @@ void init_sys(void)
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
 	new_pages_in(0xfeed0000,                          0x8000          );
 
-	vregs->C[1] = kmem_cap;
-	vregs->C[2] = vram_cap;
+	curr = &T[0];
+	curr->mid = 0;
+	curr->state = RUNNING;
+	setup_thr_cap((CAP*)&vregs->C[0], curr, 1);
+
+	vregs->C[3] = kmem_cap;
+	vregs->C[4] = vram_cap;
 
 	move_to_user(0x10000000,      0x202,              0xfeed7f90      );
 }

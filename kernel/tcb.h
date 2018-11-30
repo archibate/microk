@@ -4,9 +4,10 @@
 
 STRUCT(TCB)
 {
-	ulong pgd;
+	uint mid;
 #define RUNNING 1
-#define BLOCKED 2
+#define ONRECV 2
+#define ONSEND 3
+#define BLOCKED 4
 	uint state;
-	clock_t timeout;
 };
