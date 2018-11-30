@@ -241,39 +241,16 @@ void sdrvregs(ulong pgd)
 #define vregs   ((volatile IF_REGS*)0x400000)
 #define oldregs ((volatile IF_REGS*)0x402000)
 
-#define CLOCKS_PER_SEC 100
+#define CLOCKS_PER_SEC 100000
 typedef ulong clock_t;
 #define TIME0 4
-
-#define RUNNING 1
-#define BLOCKED 2
-#define ONRECV  3
-#define ONSEND  4
-STRUCT(TCB)
-{
-	ulong pgd;
-	clock_t timeout;
-	uint state;
-};
-
-#define ANY     62
-#define NIL     63
-#define MAXTASK 62
-TCB T[MAXTASK], *curr;
 
 clock_t clock(void)
 {
 	uint eax, edx;
 	asm volatile ("rdtsc" : "=a" (eax), "=d" (edx) ::);
 	unsigned long long ns = eax + ((long long)edx << 32);
-	return (clock_t)(ns / (1000000 / CLOCKS_PER_SEC));
-}
-
-void settask(TCB *t)
-{
-	//printf("settask: %p\n", t);
-	setcr3(t->pgd);
-	curr = t;
+	return (clock_t)(ns / (1000000000 / CLOCKS_PER_SEC));
 }
 #include <rdtsc.h> // {{{
 uint ticktsc(void)
@@ -311,6 +288,96 @@ gcc -O3:
 	2:   4.9 /   4.9
 	3:   6.6 /   6.6
 #endif // }}}
+
+#define RUNNING 1
+#define BLOCKED 2
+#define ONRECV  3
+#define ONSEND  4
+#define ANY     62
+#define NIL     63
+#define MAXTASK 62
+
+STRUCT(FPAGE)
+{
+	FPAGE *next;
+	ulong va, size, pte;
+	/*union {
+		struct {
+			ulong base;
+			uint shift : 16;
+			uint rwx : 4;
+		};
+		uint raw[2];
+	};*/
+};
+
+STRUCT(SPACE)
+{
+	FPAGE *fpg0;
+};
+
+STRUCT(TCB)
+{
+	ulong pgd;
+	clock_t timeout;
+	uint state;
+	SPACE as;
+};
+
+TCB T[MAXTASK], *curr;
+
+void do_smap(uint to, ulong va, ulong size, uint granted)
+{
+	tprintf("do_smap(%d, %#x, %#x, %d)\n", to, va, size, granted);
+	ticktsc();
+
+	FPAGE *fpg, **pprevn = &curr->as.fpg0;
+	while ((fpg = *pprevn))
+	{
+		tprintf("fpg: %#p %#x\n", fpg->va, fpg->size);
+		if (fpg->va <= va && va + size <= fpg->va + fpg->size)
+		{
+			tprintf("fpg confirmed\n");
+			if (granted)
+				*pprevn = fpg->next;
+			fpg->next = T[to].as.fpg0;
+			T[to].as.fpg0 = fpg;
+			testp(s);
+			return;
+		}
+		assert(fpg != fpg->next);
+		pprevn = &fpg->next;
+	}
+	assert(0);
+}
+
+void do_real(ulong va, ulong size)
+{
+	tprintf("do_real(%#x, %#x)\n", va, size);
+
+	FPAGE *fpg = curr->as.fpg0;
+	while (fpg)
+	{
+		tprintf("fpg: %#p %#x\n", fpg->va, fpg->size);
+		if (fpg->va <= va && va + size <= fpg->va + fpg->size)
+		{
+			tprintf("fpg confirmed\n");
+			for (ulong v = va, pte = fpg->pte; v < va + size; v += 4096, pte += 4096)
+				map_page(v, pte);
+			testp(r);
+			return;
+		}
+		fpg = fpg->next;
+	}
+	assert(0);
+}
+
+void settask(TCB *t)
+{
+	//printf("settask: %p\n", t);
+	setcr3(t->pgd);
+	curr = t;
+}
 
 #define LCMP(x, y) ((long)(x) - (long)(y))
 
@@ -350,9 +417,9 @@ void do_ipc(uint to)
 	testp(i);
 }
 
-void do_rela(uint to)
+void do_actv(uint to)
 {
-	tprintf("do_rela(%d)\n", to);
+	tprintf("do_actv(%d)\n", to);
 	ticktsc();
 
 	curr->state = BLOCKED;
@@ -363,7 +430,7 @@ void do_rela(uint to)
 	IF_REGS *myregs = tmpg(mypte & -4096L);
 	settask(&T[to]);
 	bcopy(myregs, vregs, 4096);
-	testp(r);
+	testp(a);
 }
 
 void do_fork(uint to)
@@ -379,7 +446,7 @@ void do_fork(uint to)
 	testp(f);
 }
 
-void syscall(uint ax, uint cx)
+void syscall(uint ax, uint cx, uint dx)
 {
 	uint to = cx & 0xff;
 	uint fr = (cx >> 8) & 0xff;
@@ -387,8 +454,11 @@ void syscall(uint ax, uint cx)
 	switch (ax)
 	{
 	case 0x0: return do_ipc(to);
-	case 0x1: return do_rela(to);
+	case 0x1: return do_actv(to);
 	case 0x2: return do_fork(to);
+	case 0x3: return do_smap(to, dx, vregs->si, 0);
+	case 0x4: return do_smap(to, dx, vregs->si, 1);
+	case 0x5: return do_real(    dx, vregs->si);
 	case 0x8: printf("c4_print: cx=%d\n", cx); return;
 	case 0x9: printf("halting...\n"); asm volatile ("cli; hlt");
 	default : return;
@@ -431,6 +501,24 @@ void map_pages_in(ulong vbeg, ulong ptebeg, ulong size)
 
 extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
+static FPAGE vram_fpg = {
+	.va = 0xe0000000,
+	.pte = 0xfd000000|7,
+	.size = 800 * 600,
+};
+
+static FPAGE kmem_fpg = {
+	.va = 0xa0000000,
+	.pte = 0x000000000|7,
+	.size = 0x40000,
+};
+
+void space_add(SPACE *as, FPAGE *fpg)
+{
+	fpg->next = as->fpg0;
+	as->fpg0 = fpg;
+}
+
 extern void init_timer(int freq);
 void init_sys(void)
 {
@@ -439,14 +527,16 @@ void init_sys(void)
 	T[0].pgd = getcr3();
 	T[0].state = RUNNING;
 	T[0].timeout = clock() + TIME0;
+	T[0].as.fpg0 = 0;
 	curr = &T[0];
 
 	new_page    (  0x400000);
 	new_page    (  0x401000);
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
-	//map_pages_in(0xa0000000, 0x00000000     | 7,      0x40000         );
 	new_pages_in(0xfeed0000,                          0x8000          );
-	map_pages_in(0xe0000000, 0xfd000000     | 7,      800 * 600       );
+
+	space_add(&T[0].as, &vram_fpg);
+	space_add(&T[0].as, &kmem_fpg);
 
 	move_to_user(0x10000000,      0x202,              0xfeed7f90      );
 }

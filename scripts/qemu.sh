@@ -10,7 +10,7 @@ if [[ "x$1" = "x-d" ]]; then
 	$GDB -x qemu.gdb
 elif [[ "x$1" = "x-t" ]]; then
 	$QEMU $flgs -chardev file,id=char0,path=/tmp/qemuout$$ -serial chardev:char0 &
-	sleep 1.8
+	sleep 1.0
 	kill %1
 	wait %1 || true 2>/dev/null
 	awk -F : -f scripts/avgtime.awk /tmp/qemuout$$ >> /tmp/c4benchsamps

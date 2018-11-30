@@ -7,7 +7,10 @@ import matplotlib.pyplot as plt
 plt.title("performence of C4 syscalls")
 plt.xlabel("starting time")
 plt.ylabel("costed time")
+plt.subplot(121)
 plt.ylim(bottom=0, top=200)
+plt.subplot(122)
+plt.ylim(bottom=0, top=1500)
 
 fin = open(sys.argv[1]) if len(sys.argv) > 1 else sys.stdin
 
@@ -24,6 +27,7 @@ for line in fin.readlines():
             ni = len(names)
             print('bgrcmykw'[ni], name)
             names.append(name)
+        plt.subplot(121 if name in 'it' else 122)
         plt.plot(clock, time, 'bgrcmykw'[ni], marker='o', markersize=1)
 
 plt.savefig(sys.argv[2] if len(sys.argv) > 2 else 'figure.png')

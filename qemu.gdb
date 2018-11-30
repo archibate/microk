@@ -45,6 +45,4 @@ b panic
 b exp14
 b exp13
 b do_break_point
-b do_ipc
-b c4_ipcw
-c
+bc do_smap

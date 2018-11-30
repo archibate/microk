@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 
 open I, '<errno.txt' or die;
-open H, '>lib/errno.h' or die;
-open M, '>lib/strerr.c' or die;
-open MH, '>lib/strerr.h' or die;
+open H, '>libc/errno.h' or die;
+open M, '>libc/strerr.c' or die;
+open MH, '>libc/strerr.h' or die;
 
 print H qq[#pragma once\n\n];
 
