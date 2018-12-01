@@ -19,11 +19,3 @@ void init_timer(int freq)
 
 	set_irq_enable(IRQ_TIMER, 1);
 }
-
-
-extern void on_timer(void);
-void do_timer(void)
-{
-	irq_done(IRQ_TIMER);
-	on_timer();
-}

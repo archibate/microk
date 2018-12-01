@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <types.h>
 #include <c4defs.h>
+#include <errno.h>
 #include "print.h"
 #include "ptregs.h"
 #include "panic.h"
@@ -11,7 +12,7 @@
 #include "caps.h"
 #include "clock.h"
 #include "tcb.h"
-#include <errno.h>
+#include "irq.h"
 
 // ppgpool: done {{{
 POOL_TYPE(ulong, 1024) ppgpool;
@@ -80,6 +81,7 @@ void init_vpt(void) // {{{
 #define vpt      ((V_VOLATILE ulong*)0xffc00000)
 #define vpd      ((V_VOLATILE ulong*)0xfffff000)
 #define vregs    ((V_VOLATILE IF_REGS*)0x400000)
+#define wregs    ((V_VOLATILE IF_REGS*)0x403000)
 #define vcurr    (vregs->C[0].thr.tcb)
 #define getpgd() ((vpd[1023] & -4096L))
 // map/new/del/unmap_page: remain to do {{{
@@ -358,10 +360,18 @@ int do_send(cap_t toid)
 	return 0;
 }*/
 // }}}
+SEM *getcapsem(cap_t capid)
+{
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid || cap->is_mem || !cap->is_sem)
+		return 0;
+	return cap->sem.sem;
+}
+
 TCB *getcaptcb(cap_t capid)
 {
 	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!cap->valid || cap->is_mem)
+	if (!cap->valid || cap->is_mem || cap->is_sem)
 		return 0;
 	return cap->thr.tcb;
 }
@@ -415,9 +425,8 @@ void schedule(void)
 }
 void on_timer(void)
 {
-	return; // XXX
 	tprintf("on_timer()\n");
-	schedule();
+	//schedule();
 }
 
 #define getregp()     (vpt[0x400])
@@ -426,11 +435,15 @@ static inline void allocregp(void)
 	vpt[0x400] = ppage() | 7;
 	invlpg((ulong)vregs);
 }
+static inline void setregp(ulong pte)
+{
+	vpt[0x400] = pte;
+	invlpg((ulong)vregs);
+}
 static inline void fsetregp(ulong pte)
 {
 	free_ppg(vpt[0x400] & -4096L);
-	vpt[0x400] = pte;
-	invlpg((ulong)vregs);
+	fsetregp(pte);
 }
 
 /*todo:int do_retnwait(void)//{{{
@@ -448,7 +461,66 @@ static inline void fsetregp(ulong pte)
 	return 0;
 }*///}}}
 
-int do_call(cap_t toid)
+int do_send(cap_t toid)
+{
+	tprintf("do_send(toid=%d)\n", toid);
+	ticktsc();
+
+	assert(toid != 0);
+	TCB *to = getcaptcb(toid);
+	if (!to) return -ESRCH;
+
+	if (to->state == ONRECV)
+	{
+		to->state = RUNNING;
+		vpt[0x403] = to->winpte;
+		invlpg((ulong)wregs);
+		memcpy(wregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
+		settask(to);
+	}
+	else
+	{
+		vcurr->state = ONSEND;
+		vcurr->next = to->recving;
+		to->recving = vcurr;
+		vcurr->winpte = vpt[0x400];
+		if (to->state == RUNNING)
+			settask(to);
+		else
+			schedule();
+	}
+
+	testp(s);
+	return 0;
+}
+
+int do_wait(void)
+{
+	tprintf("do_wait()\n");
+	ticktsc();
+
+	TCB *from = vcurr->recving;
+	if (from)
+	{
+		vcurr->recving = from->next;
+		assert(from->state == ONSEND);
+		from->state = RUNNING;
+		vpt[0x403] = from->winpte;
+		invlpg((ulong)wregs);
+		memcpy(vregs->needcpy, wregs->needcpy, sizeof(vregs->needcpy));
+	}
+	else
+	{
+		vcurr->state = ONRECV;
+		vcurr->winpte = vpt[0x400];
+		schedule();
+	}
+
+	testp(w);
+	return 0;
+}
+
+/*int do_call(cap_t toid) // {{{
 {
 	tprintf("do_call(toid=%d)\n", toid);
 	ticktsc();
@@ -498,22 +570,23 @@ int do_wait(void)
 
 int do_retn(cap_t toid)
 {
+	printf("ipc_retn: %p\n", vcurr);
 	tprintf("do_retn(toid=%d)\n", toid);
 	ticktsc();
 
-	TCB *from = toid ? getcaptcb(toid) : vcurr->recving;
+	TCB *from = / *toid ? getcaptcb(toid) : * /vcurr->recving;
 	if (!from)
 		return -ESRCH;
 	if (from->state != WAITRET)
 		return -ENWAIT;
-	tprintf("ipc_retn: returning\n");
+	tprintf("ipc_retn: returning last\n");
 	if (toid) vcurr->recving = from->next;
 	allocregp();
 	from->state = RUNNING;
-	settask(from);
+	//settask(from);
 	testp(r);
 	return 0;
-}
+}*/ // }}}
 
 int do_actv(cap_t toid)
 {
@@ -526,12 +599,11 @@ int do_actv(cap_t toid)
 
 	ulong mypte = vpt[0x400];
 	IF_REGS *myregs = tmpg(mypte & -4096L);
-	settask(to);
-	bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
+	//settask(to);
+	//bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
 	return 0;
 }
 
-#include "irq.h"
 TCB *irqsvr[IRQ_MAX];
 
 int do_softirq(int irq)
@@ -540,13 +612,32 @@ int do_softirq(int irq)
 	if (!to)
 		return -ENOCAP;
 	if (to->state != ONRECV)
-		return -ENWAIT;
-	return 0; // XXX!TODO!
+		return -ENWAIT;//xxx
+
+	to->state = RUNNING;
+	settask(to);
+	vregs->ax = 0;
+	vregs->si = irq;
+	if (irq == IRQ_KEYBOARD || irq == IRQ_MOUSE)
+		vregs->dx = io_inb(0x60);
+	return 0;
+}
+
+void on_hwirq(int irq)
+{
+	tprintf("on_hwirq(%d)\n", irq);
+	irq_done(irq);
+	if (irq == IRQ_TIMER) return; /// DEBUGxxx
+	if (irq == IRQ_TIMER)
+		on_timer();
+	do_softirq(irq);
 }
 
 int do_fork(cap_t toid, uint mid)
 {
 	tprintf("do_fork(%d,%d)\n", toid, mid);
+	assert(!M[mid]);
+
 	TCB *to = &T[mid];
 	to->mid = mid;
 	to->state = BLOCKED;
@@ -575,17 +666,17 @@ void syscall(uint ax, uint cx)
 	assert(vcurr->state == RUNNING);
 	switch (al)
 	{
-	case C4_CALL : vregs->ax = do_call(cl);  return;
-	case C4_WAIT : vregs->ax = do_wait(  ); return;
-	case C4_RETN : vregs->ax = do_retn(cl); return;
-	case C4_FORK : vregs->ax = do_fork(cl, 1); return;
-	case C4_ACTV : vregs->ax = do_actv(cl); return;
-	case C4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); return;
-	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); return;
-	case C4_REAL : vregs->ax = do_real (ch); return;
-	case 0x8     : printf("c4_print: cx=%d\n", cx); return;
-	case 0x9     : printf("halting...\n"); asm volatile ("cli; hlt");
-	default : vregs->ax = -ENOSYS; return;
+	case C4_SEND : vregs->ax = do_send(cl/*, (const void*)vregs->dx, ah*/);  break;
+	case C4_WAIT : vregs->ax = do_wait(  /*        (void*)vregs->dx, ah*/); break;
+	case C4_FORK : vregs->ax = do_fork(cl, cl); break;
+	case C4_ACTV : vregs->ax = do_actv(cl); break;
+	case C4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); break;
+	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
+	case C4_REAL : vregs->ax = do_real (ch); break;
+	case 0x17    : printf("c4_puts: %s\n", (const char*)cx); break;
+	case 0x18    : printf("c4_print: cx=%d\n", cx); break;
+	case 0x19    : printf("halting...\n"); asm volatile ("cli; hlt");
+	default : vregs->ax = -ENOSYS; break;
 	};
 }
 
@@ -650,10 +741,13 @@ void init_sys(void)
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
 	new_pages_in(0xfeed0000,                          0x8000          );
 
-	vcurr = &T[0];
+	irqsvr[IRQ_KEYBOARD] = vcurr = &T[0];
 	vcurr->mid = 0;
 	vcurr->state = RUNNING;
 	setup_thr_cap((CAP*)&vregs->C[0], vcurr, 1);
+
+	static SEM sem0;
+	setup_sem_cap((CAP*)&vregs->C[6], &sem0, 1);
 
 	vregs->C[3] = kmem_cap;
 	vregs->C[4] = vram_cap;

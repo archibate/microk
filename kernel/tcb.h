@@ -13,5 +13,5 @@ STRUCT(TCB)
 #define BLOCKED 5
 	uint state : 8;
 	TCB *recving;
-	ulong regp;
+	ulong winpte;
 };

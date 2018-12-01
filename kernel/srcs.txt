@@ -3,13 +3,13 @@ main
 initrd
 desc
 tss
-sys
 syscall
+sys
+keyboard
 irq
 timer
 irqents
 expents
-gen.irqdfldoes
 gen.expdfldoes
 expdump
 panic

@@ -34,10 +34,23 @@ STRUCT(THR_CAP)
 	struct {
 		uint valid : 1;
 		uint perm_rw : 1;
-		uint mbz : 1;
+		uint mbz : 2;
 		uint reserved : 29;
 	} __attribute__((packed));
 	TCB *tcb;
+};
+
+#include "sem.h"
+STRUCT(SEM_CAP)
+{
+	struct {
+		uint valid : 1;
+		uint perm_rw : 1;
+		uint mbz : 1;
+		uint mb1 : 1;
+		uint reserved : 28;
+	} __attribute__((packed));
+	SEM *sem;
 };
 
 STRUCT(CAP)
@@ -47,10 +60,12 @@ STRUCT(CAP)
 			uint valid : 1;
 			uint is_rw : 1;
 			uint is_mem : 1;
+			uint is_sem : 1;
 		} __attribute__((packed));
 		uint raw[3];
 		MEM_CAP mem;
 		THR_CAP thr;
+		SEM_CAP sem;
 	};
 };
 
@@ -68,4 +83,13 @@ static void setup_thr_cap(CAP *cap, TCB *tcb, int perm_rw)
 	cap->thr.mbz = 0;
 	cap->thr.tcb = tcb;
 	cap->thr.perm_rw = perm_rw;
+}
+
+static void setup_sem_cap(CAP *cap, SEM *sem, int perm_rw)
+{
+	cap->sem.valid = 1;
+	cap->sem.mbz = 0;
+	cap->sem.mb1 = 1;
+	cap->sem.sem = sem;
+	cap->sem.perm_rw = perm_rw;
 }

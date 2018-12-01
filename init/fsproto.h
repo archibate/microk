@@ -1,12 +1,7 @@
 #pragma once
 
-enum {
-	FS_OPEN,
-	FS_READ,
-};
-
 #include <struct.h>
-UNION(FS_ARGS)
+/*UNION(FS_ARGS)
 {
 	char __[20];
 	struct {
@@ -27,6 +22,17 @@ UNION(FS_ARGS)
 					};
 				};
 			};
-		}
+		};
 	};
+};*/
+STRUCT(FOP_ARGS)
+{
+	union {
+		enum {
+			FOP_READTX,
+			FOP_WRITETX,
+		} fopnr;
+		long rw_size;
+	};
+	char tx_buf[16];
 };

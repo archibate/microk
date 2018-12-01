@@ -2,7 +2,7 @@
 
 	GLOBAL irq_ents
 	EXTERN __int_return
-	EXTERN irq_table
+	EXTERN on_hwirq
 
 [SECTION .rodata]
 
@@ -30,7 +30,10 @@ irq_common:
 
 	mov eax, [esp + 44] ; irq index
 	sub esp, 4072
-	call [irq_table + eax * 4]
+	;call [irq_table + eax * 4]
+	push eax
+	call on_hwirq
+	add esp, 4
 
 	;add esp, 8
 
