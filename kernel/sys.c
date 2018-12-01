@@ -531,9 +531,17 @@ int do_actv(cap_t toid)
 	return 0;
 }
 
+#include "irq.h"
+TCB *irqsvr[IRQ_MAX];
+
 int do_softirq(int irq)
-{ // TODO
-	return 0;
+{
+	TCB *to = irqsvr[irq];
+	if (!to)
+		return -ENOCAP;
+	if (to->state != ONRECV)
+		return -ENWAIT;
+	return 0; // XXX!TODO!
 }
 
 int do_fork(cap_t toid, uint mid)
