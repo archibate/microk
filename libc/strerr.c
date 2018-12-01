@@ -135,8 +135,6 @@ const char *err_msgs[] = {
 	"Operation not possible due to RF-kill",
 	"Memory page has hardware error",
 	"No such capability",
-	"Target not waiting",
-	"No process called IPC",
 };
 
 const char *strerror(int err)

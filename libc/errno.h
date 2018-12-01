@@ -134,5 +134,3 @@
 #define ERFKILL	132	// Operation not possible due to RF-kill
 #define EHWPOISON	133	// Memory page has hardware error
 #define ENOCAP	134	// No such capability
-#define ENWAIT	135	// Target not waiting
-#define ENCALL	136	// No process called IPC

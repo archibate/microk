@@ -11,3 +11,11 @@
 #define C4_REAL  8
 #define C4_ANY   255
 #define C4_NIL   255
+#define MAXTASK  128
+#define MAXIRQ   16
+#define C4_IRQ(irq)  (MAXTASK + (irq))
+
+#include <types.h>
+
+typedef int c4id_t;
+typedef uchar cap_t;

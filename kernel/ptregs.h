@@ -18,7 +18,7 @@ STRUCT(IF_REGS)
 	};
 	unsigned long es, ds, unused1, unused2;
 	unsigned long pc, cs, eflags, sp, ss;
-	CAP C[MAXCAP]; // sized 3072 bytes
+	CAP C[MAXCAP]; // sized 3072 bytes // try to make this into one page?
 } __attribute__((packed));
 
 static inline void __unused_func2(void)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <struct.h>
+#include <c4/defs.h>
 
 STRUCT(TCB)
 {
@@ -12,6 +13,7 @@ STRUCT(TCB)
 #define WAITRET 4
 #define BLOCKED 5
 	uint state : 8;
+	c4id_t expecting : 16;
 	TCB *recving;
 	ulong winpte;
 };

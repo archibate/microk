@@ -1,5 +1,6 @@
 start
 main
 sysipc
-keysvr
+kbdsvr
+comsvr
 keymap
