@@ -1,9 +1,9 @@
-open O, '>kuinc/vkeys.h';
+open O, '>libu/vkeys.h';
 
 print O <<EOF
 #pragma once
 
-#define IS_VKEY(i) ((i)<0)
+#define IS_VKEY(i) ((signed)(i)<0)
 #define _VKEY_OF(i) (-i)
 EOF
 ;

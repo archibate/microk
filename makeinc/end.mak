@@ -3,7 +3,7 @@ always:
 	@:
 
 
-INCLUDE+=. $Dkernel/uinc $Dlibc $Dlibu
+INCLUDE+=. $Dkernel/uinc $Dlibc $Dincl
 CFLAGS+=$(INCLUDE:%=-I%)
 
 ONAMES:=$(shell cat srcs.txt)

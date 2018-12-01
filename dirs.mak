@@ -1,5 +1,5 @@
 B=bin/
-L=$Dlib/
+L=$D$Blib/
 S=$Dscripts/
 M=$Dmakeinc/
 T=$Dtools/

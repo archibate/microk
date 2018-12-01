@@ -44,7 +44,7 @@ uint c4_ipcxw(uint type, uchar capid, uchar hisid, uchar to, uint w)
 //#define c4_share(to, capid, hisid)*/ // }}}
 #pragma once
 
-#include "c4defs.h"
+#include "defs.h"
 #include <sizet.h>
 #include <types.h>
 #include <stddef.h>

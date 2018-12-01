@@ -3,7 +3,7 @@
 #include <memory.h>
 #include <stddef.h>
 #include <types.h>
-#include <c4defs.h>
+#include <c4/defs.h>
 #include <errno.h>
 #include "print.h"
 #include "ptregs.h"
@@ -597,10 +597,11 @@ int do_actv(cap_t toid)
 	assert(to->state == BLOCKED);
 	to->state = RUNNING;
 
-	ulong mypte = vpt[0x400];
-	IF_REGS *myregs = tmpg(mypte & -4096L);
+	//ulong mypte = vpt[0x400];
+	//IF_REGS *myregs = tmpg(mypte & -4096L);
 	//settask(to);
 	//bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
+	//untpmg(myregs);
 	return 0;
 }
 
@@ -612,14 +613,13 @@ int do_softirq(int irq)
 	if (!to)
 		return -ENOCAP;
 	if (to->state != ONRECV)
-		return -ENWAIT;//xxx
+		return -ENWAIT;//XXX:use to->recving += irqhwcb!!!!
 
 	to->state = RUNNING;
 	settask(to);
 	vregs->ax = 0;
 	vregs->si = irq;
-	if (irq == IRQ_KEYBOARD || irq == IRQ_MOUSE)
-		vregs->dx = io_inb(0x60);
+	tprintf("on_softirq(%d) returning\n", irq);
 	return 0;
 }
 
@@ -627,10 +627,12 @@ void on_hwirq(int irq)
 {
 	tprintf("on_hwirq(%d)\n", irq);
 	irq_done(irq);
-	if (irq == IRQ_TIMER) return; /// DEBUGxxx
 	if (irq == IRQ_TIMER)
-		on_timer();
-	do_softirq(irq);
+		return;//xxx:on_timer();
+	int ret = do_softirq(irq);
+	if (ret && (irq == IRQ_KEYBOARD || irq == IRQ_MOUSE)) {
+		io_inb(0x60);//XXX:TODO
+	}
 }
 
 int do_fork(cap_t toid, uint mid)
@@ -674,7 +676,7 @@ void syscall(uint ax, uint cx)
 	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
 	case C4_REAL : vregs->ax = do_real (ch); break;
 	case 0x17    : printf("c4_puts: %s\n", (const char*)cx); break;
-	case 0x18    : printf("c4_print: cx=%d\n", cx); break;
+	case 0x18    : printf("c4_print: cx=%d(%c)\n", cx, cx); break;
 	case 0x19    : printf("halting...\n"); asm volatile ("cli; hlt");
 	default : vregs->ax = -ENOSYS; break;
 	};
@@ -752,5 +754,5 @@ void init_sys(void)
 	vregs->C[3] = kmem_cap;
 	vregs->C[4] = vram_cap;
 
-	move_to_user(0x10000000,      0x202,              0xfeed7f90      );
+	move_to_user(0x10000000,      0x202 + (3<<12),              0xfeed7f90      );
 }

@@ -2,41 +2,44 @@
 #include <types.h>
 #include <stddef.h>
 #include <memory.h>
-#include <sysc4.h>
-#include "fsproto.h"
+#include <c4/api.h>
+#include "keysvr.h"
 
 #define SERVER   1
 #define KMEM_CAP 3
 #define VRAM_CAP 4
 
-void readtx(int svr, char *buf, size_t size)
+int getich(int svr)
 {
-	FOP_ARGS args;
-	args.fopnr = FOP_READTX;
-	c4_send(svr, &args);
+	TX_ARGS args;
+	c4_send(svr, NULL);
 	c4_wait(svr, &args);
-	memcpy(buf, args.tx_buf, sizeof(args.tx_buf));
+	return args.tx_ich;
 }
 
 void my_client(void)
 {
-	static char buf[32];
-	readtx(SERVER, buf, sizeof(buf));
-	c4_puts(buf);
+	while (1) {
+		uint ich = getich(SERVER);
+		c4_print(ich);
+	}
 }
 
 void main(void)
 {
 	if (!c4_fork(1, NULL))
 	{
-		c4_real(KMEM_CAP);
-		extern void myfile_server(char *ramdisk);
-		myfile_server((char*)0xa0007c00);
+		if (!c4_fork(14, NULL)) {
+		} else {
+			c4_actv(14, NULL);//
+			my_client();
+			c4_halt();
+		}
 	}
 	else
 	{
 		c4_actv(1, NULL);//
-		my_client();
-		c4_halt();
+		extern void keyboard_server(void);
+		keyboard_server();
 	}
 }
