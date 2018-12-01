@@ -14,6 +14,7 @@ all: $(IMAGE)
 
 PHONY+=install
 install: $(IMAGE)
+	cp $< $L
 
 
 include $Mend.mak

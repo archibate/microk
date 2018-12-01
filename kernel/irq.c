@@ -1,5 +1,5 @@
-#include <irq.h>
-#include <idt.h> // IRQ_IDT_BEG
+#include "irq.h"
+#include "idt.h" // IRQ_IDT_BEG
 #include <ioport.h>
 
 

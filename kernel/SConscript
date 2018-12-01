@@ -1,0 +1,22 @@
+# -*- coding: utf-8 -*-
+# vim: ft=python
+
+import sys
+from os.path import join
+
+Import('env')
+env.Append(CCFLAGS = '-D_KERNEL=1')
+env.Append(LIBS = 'initrd')
+
+sys.path.append('..')
+sys.path.append('.')
+
+
+objs = []
+objs += env.Object(Glob('*.c'))
+objs += list(map(env.NASMObject, Glob('*.asm')))
+env.Depends(Glob('*.asm'), Glob('*.inc'))
+
+progs = []
+progs += env.Program('kernel.elf', objs)
+Return('progs')

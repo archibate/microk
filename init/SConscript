@@ -1,0 +1,21 @@
+# -*- coding: utf-8 -*-
+# vim: ft=python
+
+import sys
+from os.path import join
+
+Import('env')
+
+sys.path.append('..')
+sys.path.append('.')
+
+
+objs = []
+objs += env.Object(Glob('*.c'))
+objs += list(map(env.NASMObject, Glob('*.asm')))
+env.Depends(Glob('*.asm'), Glob('*.inc'))
+
+progs = []
+progs += env.Program('init.elf', objs)
+env.StaticLibrary('initrd.a', 'initrd.s')
+Return('progs')

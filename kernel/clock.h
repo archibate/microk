@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rdtsc.h>
+#include "rdtsc.h"
 
 #define CLOCKS_PER_MSEC 100
 #define CLOCKS_PER_SEC (1000*CLOCKS_PER_MSEC)

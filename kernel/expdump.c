@@ -1,6 +1,6 @@
-#include <ptregs.h>
-#include <panic.h>
-#include <print.h>
+#include "ptregs.h"
+#include "panic.h"
+#include "print.h"
 
 void __attribute__((noreturn)) unhandled_exception(const char *info)
 {

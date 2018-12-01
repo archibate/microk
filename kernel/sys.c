@@ -533,6 +533,7 @@ int do_actv(cap_t toid)
 
 int do_softirq(int irq)
 { // TODO
+	return 0;
 }
 
 int do_fork(cap_t toid, uint mid)

@@ -1,5 +1,5 @@
-#include <panic.h>
-#include <print.h>
+#include "panic.h"
+#include "print.h"
 #include <stdarg.h>
 #include <memory.h>
 
