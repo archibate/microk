@@ -1,4 +1,4 @@
-#include "vkeys.h"
+#include <asm/vkeys.h>
 
 const unsigned int keymap[0x80] = {
 	[0x01] = '\033',

@@ -4,7 +4,7 @@ endif
 
 $K.elf: $(LDSCRIPT) $(OBJS)
 	$E ld $@
-	$V$(CC) $(CFLAGS) $(LDFLAGS) -T $(LDSCRIPT) -o $@ $(OBJS)
+	$V$(CC) $(CFLAGS) $(LDFLAGS) -T $(LDSCRIPT) -o $@ $(OBJS) $(LIBS:%=-l%)
 
 $K.a: $(OBJS)
 	$E ar $@

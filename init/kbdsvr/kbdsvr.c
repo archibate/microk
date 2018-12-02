@@ -1,10 +1,8 @@
-#include "ipcmsgs.h"
-#include <types.h>
-#include <stddef.h>
-#include <c4/api.h>
-#include <irqidxs.h>
-#include <ioport.h>
-#include <vkeys.h>
+#include <libl4/ipcmsgs.h>
+#include <libl4/l4/api.h>
+#include <asm/irqidxs.h>
+#include <asm/ioport.h>
+#include <asm/vkeys.h>
 #include "keymap.h"
 
 static uint keyboard_getich(void);
@@ -13,10 +11,10 @@ void keyboard_server(void)
 	ICH_MSG msg;
 	while (1)
 	{
-		c4id_t cli = c4_wait(C4_ANY, &msg);
+		l4id_t cli = l4_wait(L4_ANY, &msg);
 		msg.ich = keyboard_getich();
 		msg.ic_raw[4] = 0;
-		c4_send(cli, &msg);
+		l4_send(cli, &msg);
 	}
 }
 
@@ -27,7 +25,7 @@ uint keyboard_getich(void)
 {
 	UT_REGS regs;
 again:
-	c4_wait(C4_IRQ(IRQ_KEYBOARD), &regs);
+	l4_wait(L4_IRQ(IRQ_KEYBOARD), &regs);
 	uint scan = regs.dx;
 	_Bool on = !(scan & 0x80);
 	scan &= 0x7f;

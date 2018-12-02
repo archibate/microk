@@ -1,7 +1,6 @@
 D=../
 NAME=init
 KTE=bin
-DEFINES+=_KERNEL=1
 
 default: all
 
@@ -17,4 +16,5 @@ PHONY+=install
 install: $(IMAGE)
 
 
+INCLUDE+=kbdsvr comsvr xterm
 include $Mend.mak

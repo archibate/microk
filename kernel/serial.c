@@ -1,5 +1,5 @@
 #include "serial.h"
-#include <ioport.h>
+#include <asm/ioport.h>
 
 
 static

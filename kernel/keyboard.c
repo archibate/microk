@@ -1,5 +1,5 @@
 #include "irq.h" // set_irq_enable
-#include <ioport.h>
+#include <asm/ioport.h>
 
 
 void init_keyboard

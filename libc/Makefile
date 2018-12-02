@@ -14,7 +14,11 @@ all: $(IMAGE)
 
 PHONY+=install
 install: $(IMAGE)
-	cp $< $L
+	cp $< $Nlib/
+
+PHONY+=install-inc
+install-inc: $(shell cat incs.txt)
+	cp -r $^ $Ninc
 
 
 include $Mend.mak

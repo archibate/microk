@@ -1,6 +1,6 @@
 #include "irq.h"
 #include "idt.h" // IRQ_IDT_BEG
-#include <ioport.h>
+#include <asm/ioport.h>
 
 
 void init_pic

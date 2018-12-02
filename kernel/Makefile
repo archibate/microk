@@ -1,4 +1,5 @@
 D=../
+INCNAME=krnl4
 NAME=kernel
 KTE=bin
 LDSCRIPT=kernel.ld
@@ -17,5 +18,5 @@ PHONY+=install
 install: $(IMAGE)
 	cp $< $Nkernel.bin
 
-
+include $Minsinc.mak
 include $Mend.mak

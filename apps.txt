@@ -1,4 +1,6 @@
-boot
+.incl
 libc
+libl4
 init
+boot
 kernel

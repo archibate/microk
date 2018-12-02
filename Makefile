@@ -17,20 +17,22 @@ PHONY+=app-%
 app-%:
 	make -C $* install
 
+PHONY+=app-%
+app-inc-%:
+	-make -C $* install-inc
+
 $(BOOTSECT): app-boot
 
-PHONY+=apps
-apps: $(APPS:%=app-%)
 
-
-$(FDIMG): $(BOOTSECT) $(APPS:%=app-%)
+$(FDIMG): $(BOOTSECT) $(APPS:%=app-inc-%) $(APPS:%=app-%)
+	mkdir -p $(@D)
 	dd if=/dev/zero of=$@ bs=$$((1440*1024)) count=1
 	mkfs.fat --invariant -S 512 -s 8 -F 12 -R 8 -n "OSYS FLOPPY" $@
 	dd if=$(BOOTSECT) of=$@ bs=1 skip=62 seek=62 count=$$((512*4-62)) conv=notrunc
 	mkdir -p $Bmnt
 	-$(SH) $Sumountloop.sh $Bmnt
 	$(SH) $Smountloop.sh $Bmnt $@
-	sudo cp -r isodir/* $Bmnt
+	sudo cp -r isodir/kernel.bin isodir/bin isodir/root $Bmnt
 	$(SH) $Sumountloop.sh $Bmnt
 
 
@@ -45,7 +47,7 @@ run: $(FDIMG)
 PHONY+=test
 test: $(FDIMG)
 	$(SH) $Sqemu.sh -t
-	$(PYTHON) $Sbenchplot.py /tmp/c4benchsamps
+	$(PYTHON) $Sbenchplot.py /tmp/l4benchsamps
 
 PHONY+=debug
 debug: $(FDIMG)

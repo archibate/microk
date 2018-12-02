@@ -1,6 +1,7 @@
 start
 main
-sysipc
-kbdsvr
-comsvr
-keymap
+kbdsvr/kbdsvr
+kbdsvr/keymap
+comsvr/comsvr
+xterm/main
+xterm/asc16.fnt

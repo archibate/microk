@@ -1,15 +1,14 @@
-#include "ipcmsgs.h"
-#include <types.h>
-#include <stddef.h>
-#include <c4/api.h>
-#include <ioport.h>
+#include <libl4/ipcmsgs.h>
+#include <libl4/l4/api.h>
+#include <asm/ioport.h>
 
 
 static void serial_putc(char c);
 void my_putc(char c)
 {
-	c &= 0x7f;
-	if (c < ' ') {
+	if (c >= 0x80)
+		return;
+	if (c < ' ' && c != '\n' && c != '\t') {
 		serial_putc('^');
 		c += '@';
 	}
@@ -22,11 +21,11 @@ void serial_server(void)
 	TX_MSG msg;
 	while (1)
 	{
-		c4id_t cli = c4_wait(C4_ANY, &msg);
+		l4id_t cli = l4_wait(L4_ANY, &msg);
 		for (int i = 0; i < msg.tx_len; i++) {
 			my_putc(msg.tx_data[i]);
 		}
-		c4_send(cli, NULL);
+		l4_send(cli, NULL);
 	}
 }
 

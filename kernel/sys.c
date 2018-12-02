@@ -5,7 +5,7 @@
 #include <memory.h>
 #include <stddef.h>
 #include <types.h>
-#include <c4/defs.h>
+#include <l4/defs.h>
 #include <errno.h>
 #include "print.h"
 #include "ptregs.h"
@@ -14,6 +14,7 @@
 #include "caps.h"
 #include "clock.h"
 #include "tcb.h"
+#include "msg.h"
 #include "irq.h"
 
 // ppgpool: done {{{
@@ -82,6 +83,7 @@ void init_vpt(void) // {{{
 #define V_VOLATILE //volatile
 #define vpt      ((V_VOLATILE ulong*)0xffc00000)
 #define vpd      ((V_VOLATILE ulong*)0xfffff000)
+#define vldt     ((V_VOLATILE SEGDESC*)0x405000)
 #define vregs    ((V_VOLATILE IF_REGS*)0x400000)
 #define wregs    ((V_VOLATILE IF_REGS*)0x403000)
 #define vcurr    (vregs->C[0].thr.tcb)
@@ -373,7 +375,7 @@ TCB *getcaptcb(cap_t capid)
 	return cap->thr.tcb;
 }
 
-TCB *getidtcb(c4id_t tid)
+TCB *getidtcb(l4id_t tid)
 {
 	if (tid > MAXTASK || tid < 0)
 		return 0;
@@ -383,12 +385,18 @@ TCB *getidtcb(c4id_t tid)
 	return tcb;
 }
 
-c4id_t tidof(TCB *tcb)
+#if 1
+l4id_t tidof(TCB *tcb)
 {
 	int i = tcb - T;
-	assert(i < MAXTASK && i >= 0);
-	return i;
+	if (i < MAXTASK && i >= 0)
+		return i;
+	else
+		return tcb->mid;
 }
+#else
+#define tidof(t) ((t)->mid)
+#endif
 
 int do_real(cap_t capid) // todo: will later to be removed, done in page fault instead
 {
@@ -405,7 +413,7 @@ int do_real(cap_t capid) // todo: will later to be removed, done in page fault i
 	return 0;
 }
 
-int do_share(c4id_t toid, cap_t capid, cap_t hiscid, int granted)
+int do_share(l4id_t toid, cap_t capid, cap_t hiscid, int granted)
 {
 	tprintf("do_share(%d,%d,%d)\n", toid, capid, granted);
 	assert(toid != 0);
@@ -477,11 +485,11 @@ static inline void fsetregp(ulong pte)
 	return 0;
 }*///}}}
 
-int is_expecting(c4id_t expecting, c4id_t id)
+int is_expecting(l4id_t expecting, l4id_t id)
 {
 	assert(id >= 0);
 	assert(expecting >= 0);
-	if (id < MAXTASK && expecting == C4_ANY)
+	if (id < MAXTASK && expecting == L4_ANY)
 		return 1;
 	if (expecting == id)
 		return 1;
@@ -489,63 +497,83 @@ int is_expecting(c4id_t expecting, c4id_t id)
 	return 0;
 }
 
-c4id_t do_wait(c4id_t exptid)
+l4id_t do_wait(l4id_t exptid)
 {
-	tprintf("do_wait(%d)\n", exptid);
+	tprintf("%d:do_wait(%d)\n", tidof(vcurr), exptid);
 	ticktsc();
 
-	TCB *from, **pprevn = &vcurr->recving;
-	while ((from = *pprevn)) // TODO: need iterate in reverse!
-	{
-		if (is_expecting(exptid, tidof(from)))
+	for (int i = 0; i < MAXMSG; i++) {
+		MSG *msg = &vregs->msgs[i];
+		if (!msg->is_valid)
+			continue;
+
+		l4id_t tid = msg->tid;
+		if (is_expecting(exptid, tid))
 		{
-			*pprevn = from->next;
-			assert(from->state == ONSEND);
-			from->state = RUNNING;
-			vpt[0x403] = from->winpte;
-			invlpg((ulong)wregs);
-			memcpy(vregs->needcpy, wregs->needcpy, sizeof(vregs->needcpy));
+			tprintf("%d/%d:direct recv %d/%d\n", tidof(vcurr), exptid, msg - vregs->msgs, tid);
+			memcpy(&vregs->msg0dat, &msg->dat, sizeof(msg->dat));
+			msg->is_valid = 0;
 			testp(w1);
-			return tidof(from);
+			return tid;
 		}
-		pprevn = &from->next;
 	}
+	tprintf("block on recv\n");
 	vcurr->state = ONRECV;
 	vcurr->expecting = exptid;
-	vcurr->winpte = vpt[0x400];
 	schedule();
 	testp(w2);
 	return 0;
 }
 
-int do_send(c4id_t toid)
+MSG *alloc_msgslot(MSG *msgs)
 {
-	tprintf("do_send(toid=%d)\n", toid);
+	for (int i = 0; i < MAXMSG; i++) {
+		if (!msgs[i].is_valid)
+			return &msgs[i];
+	}
+	panic("alloc_msgslot: Too many messages\n");
+	return 0;
+}
+
+int do_send(l4id_t toid)
+{
+	tprintf("%d:do_send(toid=%d)\n", tidof(vcurr), toid);
 	ticktsc();
 
 	TCB *to = getidtcb(toid);
 	if (!to) return -ESRCH;
 	assert(to != vcurr);
 
-	c4id_t mytid = tidof(vcurr);
+	l4id_t mytid = tidof(vcurr);
 	if (to->state == ONRECV && is_expecting(to->expecting, mytid))
 	{
-		// 模仿 me???? sendn1b??
 		to->state = RUNNING;
-		vpt[0x403] = to->winpte;
+#if 1 // good
+		assert(to->wtmpte);
+		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
-		memcpy(wregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
+		memcpy(&wregs->msg0dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
 		settask(to);
 		testp(s1);
+#else
+		ulong mypte = vpt[0x400];
+		settask(to);
+		vpt[0x403] = mypte;
+		invlpg((ulong)wregs);
+		memcpy(&vregs->msg0dat, &wregs->msg0dat, sizeof(vregs->msg0dat));
+		testp(s1);
+#endif
 		return mytid;
 	}
 	else
 	{
-		// 模仿 me???? sendnb2??
-		vcurr->state = ONSEND;
-		vcurr->next = to->recving;
-		to->recving = vcurr; // TODO: may need insert from last!
-		vcurr->winpte = vpt[0x400];
+		assert(to->wtmpte);
+		vpt[0x403] = to->wtmpte;
+		invlpg((ulong)wregs);
+		MSG *msg = alloc_msgslot(wregs->msgs);
+		memcpy(&msg->dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
+		msg->is_valid = 1;
+		msg->tid = mytid;
 		if (to->state == RUNNING)
 			settask(to);
 		else
@@ -557,7 +585,7 @@ int do_send(c4id_t toid)
 
 TCB *irqsvr[IRQ_MAX];
 
-int do_softirq(int irq, int dx)
+int do_softirq(int irq, uint dx)
 {
 	tprintf("do_softirq(%d,%d)\n", irq, dx);
 	ticktsc();
@@ -565,29 +593,32 @@ int do_softirq(int irq, int dx)
 	TCB *to = irqsvr[irq];
 	if (!to)
 		return -ENOCAP;
-	if (to->state != ONRECV || !is_expecting(to->expecting, C4_IRQ(irq))) {
-		return -EWBLOCK;//XXX:use to->recving += irqhwcb!!!!
-#if 0
-	// belows can 模仿 do_send2????
-	// // make a fake `irq` TCB???? IDEA: no we should use another structure in to->recving.
-		/* TODO: use to->recving += irqhwcb!!!! */
-		TCB *irqhwcb = ...;
-		irqhwcb->next = to->recving;
-		to->recving = irqhwcb;
+
+	if (to->state == ONRECV && is_expecting(to->expecting, L4_IRQ(irq)))
+	{
+		to->state = RUNNING;
+		settask(to); // seem this slow downs a lot, how about to put irq servers in the ldt segment?
+		vregs->ax = L4_IRQ(irq);
+		vregs->msg0dat.dx = dx;
+		testp(i1);
+		return 0;
+	}
+	else
+	{
+		assert(to->wtmpte);
+		vpt[0x403] = to->wtmpte;
+		invlpg((ulong)wregs);
+		MSG *msg = alloc_msgslot(wregs->msgs);
+		msg->dat.dx = dx;
+		msg->is_valid = 1;
+		msg->tid = L4_IRQ(irq);
 		if (to->state == RUNNING)
 			settask(to);
 		else
 			schedule();
-#endif
+		testp(i2);
+		return 0;
 	}
-	// belows can 模仿 do_send1????
-
-	to->state = RUNNING;
-	settask(to); // seem this cost a lot of time, how about to put irq servers in the ldt segment?
-	vregs->ax = C4_IRQ(irq);
-	vregs->dx = dx;
-	testp(ir);
-	return 0;
 }
 
 void __attribute__((noreturn)) do_idle(void)
@@ -604,7 +635,7 @@ void __attribute__((noreturn)) do_idle(void)
 
 void on_hwirq(int irq)
 {
-	tprintf("on_hwirq(%d)\n", irq);
+	//tprintf("on_hwirq(%d)\n", irq);
 	irq_done(irq);
 	if (irq == IRQ_TIMER)
 		return;//xxx:on_timer();
@@ -698,7 +729,7 @@ int do_actv(cap_t toid)
 	return 0;
 }
 
-int do_fork(cap_t tocid, c4id_t mid)
+int do_fork(cap_t tocid, l4id_t mid)
 {
 	tprintf("do_fork(%d,%d)\n", tocid, mid);
 	assert(!M[mid]);
@@ -715,6 +746,8 @@ int do_fork(cap_t tocid, c4id_t mid)
 
 	forkizevpd();
 	setup_thr_cap((CAP*)&vregs->C[0],     to, 1);
+	vcurr->wtmpte = vpt[0x400];
+	memset(vregs->msgs, 0, sizeof(vregs->msgs));
 
 	setcr3(oldcr3);
 	setup_thr_cap((CAP*)&vregs->C[tocid], to, 1);
@@ -728,15 +761,15 @@ void syscall(uint ax, uint cx)
 	assert(vcurr->state == RUNNING);
 	switch (al)
 	{
-	case C4_SEND : vregs->ax = do_send (cl/*, (const void*)vregs->dx, ah*/); break;
-	case C4_WAIT : vregs->ax = do_wait (cl/*,       (void*)vregs->dx, ah*/); break;
-	case C4_FORK : vregs->ax = do_fork (cl, ch);        break;
-	case C4_ACTV : vregs->ax = do_actv (cl);            break;
-	case C4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); break;
-	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
-	case C4_REAL : vregs->ax = do_real (ch);            break;
-	case 0x17    : printf("c4_puts: %s\n", (const char*)cx);     break;
-	case 0x18    : printf("c4_print: cx=%d=%#x(%c)\n", cx, cx);  break;
+	case L4_SEND : vregs->ax = do_send (cl/*, (const void*)vregs->dx, ah*/); break;
+	case L4_WAIT : vregs->ax = do_wait (cl/*,       (void*)vregs->dx, ah*/); break;
+	case L4_FORK : vregs->ax = do_fork (cl, ch);        break;
+	case L4_ACTV : vregs->ax = do_actv (cl);            break;
+	case L4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); break;
+	case L4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
+	case L4_REAL : vregs->ax = do_real (ch);            break;
+	case 0x17    : printf("l4_puts: %s\n", (const char*)cx);     break;
+	case 0x18    : printf("l4_print: cx=%d=%#x(%c)\n", cx, cx);  break;
 	case 0x19    : printf("halting...\n"); do_idle();            break;
 	default :      vregs->ax = -ENOSYS;                          break;
 	};
@@ -812,6 +845,8 @@ void init_sys(void)
 
 	static SEM sem0;
 	setup_sem_cap((CAP*)&vregs->C[6], &sem0, 1);
+
+	vcurr->wtmpte = vpt[0x400];
 
 	vregs->C[8] = kmem_cap;
 	vregs->C[9] = vram_cap;

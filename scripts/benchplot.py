@@ -4,7 +4,7 @@ print('generating data figure...')
 
 import sys
 import matplotlib.pyplot as plt
-plt.title("performence of C4 syscalls")
+plt.title("performence of L4 syscalls")
 plt.xlabel("starting time")
 plt.ylabel("costed time")
 #plt.subplot(121)

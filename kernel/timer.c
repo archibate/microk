@@ -1,5 +1,5 @@
 #include "irq.h"
-#include <ioport.h>
+#include <asm/ioport.h>
 
 
 #define PIT_CTR0 0x40

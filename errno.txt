@@ -132,3 +132,4 @@
 	ERFKILL		: Operation not possible due to RF-kill
 	EHWPOISON	: Memory page has hardware error
 	ENOCAP		: No such capability
+	EMMSG		: Too many messages

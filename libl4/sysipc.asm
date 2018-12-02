@@ -1,10 +1,10 @@
 ; vim: ft=nasm ai
 
-	GLOBAL c4_sysux
+	GLOBAL l4_sysux
 
 [SECTION .text]
 [BITS 32]
-c4_sysux: ; uint c4_sysux(uint ax, uint cx, const UT_REGS *wr, UT_REGS *rd)
+l4_sysux: ; uint l4_sysux(uint ax, uint cx, const UT_REGS *wr, UT_REGS *rd)
 	push ebp
 	mov ebp, esp ; for debug
 	push esi

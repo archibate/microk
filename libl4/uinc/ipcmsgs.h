@@ -14,5 +14,5 @@ STRUCT(ICH_MSG)
 STRUCT(TX_MSG)
 {
 	uchar tx_len;
-	char tx_data[19];
+	char tx_data[23];
 };
