@@ -1,0 +1,1 @@
+crt.c dirops.c fopen.c fops.c fprintf.c fstr.c malloc.c printf.c start.asm

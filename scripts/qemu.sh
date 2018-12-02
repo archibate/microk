@@ -7,7 +7,7 @@ GDB=${GDB-cgdb}
 
 if [[ "x$1" = "x-d" ]]; then
 	$QEMU $flgs -S -gdb tcp::1234 &
-	$GDB -x qemu.gdb
+	$GDB -x scripts/qemu.gdb
 elif [[ "x$1" = "x-t" ]]; then
 	$QEMU $flgs -chardev file,id=char0,path=/tmp/qemuout$$ -serial chardev:char0 &
 	sleep 2.0

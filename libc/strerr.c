@@ -135,6 +135,7 @@ const char *err_msgs[] = {
 	"Operation not possible due to RF-kill",
 	"Memory page has hardware error",
 	"No such capability",
+	"Too many messages",
 };
 
 const char *strerror(int err)

@@ -1,2 +1,2 @@
 set -e
-${BOCHS-bochs} -qf bochsrc.bxrc
+${BOCHS-bochs} -qf scripts/bochsrc.bxrc
