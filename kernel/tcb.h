@@ -5,7 +5,6 @@
 
 STRUCT(TCB)
 {
-	TCB *next;
 	uint mid : 8;
 #define RUNNING 1
 #define ONRECV 2
@@ -15,5 +14,6 @@ STRUCT(TCB)
 	uint state : 8;
 	c4id_t expecting : 16;
 	TCB *recving;
+	TCB *next;
 	ulong winpte;
 };

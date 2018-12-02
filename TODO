@@ -1,3 +1,3 @@
 irq!! sys.c: 557
-use caps instead of fpage
-wanna make a better id system.
+on_timer(): schedule
+idle_thread()!

@@ -425,6 +425,8 @@ int do_share(c4id_t toid, cap_t capid, cap_t hiscid, int granted)
 	return 0;
 }
 
+void __attribute__((noreturn)) do_idle(void);
+
 void schedule(void)
 {
 	tprintf("schedule()\n");
@@ -435,6 +437,7 @@ void schedule(void)
 			return;
 		}
 	}
+	//do_idle();
 	panic("schedule(): no runnable task!\n");
 }
 void on_timer(void)
@@ -482,6 +485,7 @@ int is_expecting(c4id_t expecting, c4id_t id)
 		return 1;
 	if (expecting == id)
 		return 1;
+	//printf("wuwu(%d,%d)\n", expecting, id);
 	return 0;
 }
 
@@ -490,11 +494,12 @@ c4id_t do_wait(c4id_t exptid)
 	tprintf("do_wait(%d)\n", exptid);
 	ticktsc();
 
-	for (TCB *from = vcurr->recving; from; from = from->next)
+	TCB *from, **pprevn = &vcurr->recving;
+	while ((from = *pprevn)) // TODO: need iterate in reverse!
 	{
 		if (is_expecting(exptid, tidof(from)))
 		{
-			vcurr->recving = from->next;
+			*pprevn = from->next;
 			assert(from->state == ONSEND);
 			from->state = RUNNING;
 			vpt[0x403] = from->winpte;
@@ -503,6 +508,7 @@ c4id_t do_wait(c4id_t exptid)
 			testp(w1);
 			return tidof(from);
 		}
+		pprevn = &from->next;
 	}
 	vcurr->state = ONRECV;
 	vcurr->expecting = exptid;
@@ -524,6 +530,7 @@ int do_send(c4id_t toid)
 	c4id_t mytid = tidof(vcurr);
 	if (to->state == ONRECV && is_expecting(to->expecting, mytid))
 	{
+		// 模仿 me???? sendn1b??
 		to->state = RUNNING;
 		vpt[0x403] = to->winpte;
 		invlpg((ulong)wregs);
@@ -534,9 +541,10 @@ int do_send(c4id_t toid)
 	}
 	else
 	{
+		// 模仿 me???? sendnb2??
 		vcurr->state = ONSEND;
 		vcurr->next = to->recving;
-		to->recving = vcurr;
+		to->recving = vcurr; // TODO: may need insert from last!
 		vcurr->winpte = vpt[0x400];
 		if (to->state == RUNNING)
 			settask(to);
@@ -551,19 +559,47 @@ TCB *irqsvr[IRQ_MAX];
 
 int do_softirq(int irq, int dx)
 {
+	tprintf("do_softirq(%d,%d)\n", irq, dx);
+	ticktsc();
+
 	TCB *to = irqsvr[irq];
 	if (!to)
 		return -ENOCAP;
-	if (to->state != ONRECV || !is_expecting(to->expecting, C4_IRQ(irq)))
+	if (to->state != ONRECV || !is_expecting(to->expecting, C4_IRQ(irq))) {
 		return -EWBLOCK;//XXX:use to->recving += irqhwcb!!!!
+#if 0
+	// belows can 模仿 do_send2????
+	// // make a fake `irq` TCB???? IDEA: no we should use another structure in to->recving.
+		/* TODO: use to->recving += irqhwcb!!!! */
+		TCB *irqhwcb = ...;
+		irqhwcb->next = to->recving;
+		to->recving = irqhwcb;
+		if (to->state == RUNNING)
+			settask(to);
+		else
+			schedule();
+#endif
+	}
+	// belows can 模仿 do_send1????
 
 	to->state = RUNNING;
-	settask(to);
+	settask(to); // seem this cost a lot of time, how about to put irq servers in the ldt segment?
 	vregs->ax = C4_IRQ(irq);
-	vregs->si = irq;
 	vregs->dx = dx;
-	tprintf("on_softirq(%d) returning\n", irq);
+	testp(ir);
 	return 0;
+}
+
+void __attribute__((noreturn)) do_idle(void)
+{
+	printf("do_idle() called\n");
+	asm volatile (
+		"mov %0, %%esp\n"
+		"1:\nsti\nhlt\n"
+		"cli\njmp 1b\n"
+		:: "r" (&vregs->sp)
+		: "memory");
+	__builtin_unreachable();
 }
 
 void on_hwirq(int irq)
@@ -574,7 +610,7 @@ void on_hwirq(int irq)
 		return;//xxx:on_timer();
 	int ret = do_softirq(irq, io_inb(0x60));
 	if (ret < 0)
-		printf("oops!\n");
+		printf("oops(%d:%m)!\n", ret, ret);
 }
 
 /*int do_call(cap_t toid) // {{{
@@ -692,17 +728,17 @@ void syscall(uint ax, uint cx)
 	assert(vcurr->state == RUNNING);
 	switch (al)
 	{
-	case C4_SEND : vregs->ax = do_send(cl/*, (const void*)vregs->dx, ah*/);  break;
-	case C4_WAIT : vregs->ax = do_wait(cl/*        (void*)vregs->dx, ah*/); break;
-	case C4_FORK : vregs->ax = do_fork(cl, ch); break;
-	case C4_ACTV : vregs->ax = do_actv(cl); break;
+	case C4_SEND : vregs->ax = do_send (cl/*, (const void*)vregs->dx, ah*/); break;
+	case C4_WAIT : vregs->ax = do_wait (cl/*,       (void*)vregs->dx, ah*/); break;
+	case C4_FORK : vregs->ax = do_fork (cl, ch);        break;
+	case C4_ACTV : vregs->ax = do_actv (cl);            break;
 	case C4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); break;
 	case C4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
-	case C4_REAL : vregs->ax = do_real (ch); break;
-	case 0x17    : printf("c4_puts: %s\n", (const char*)cx); break;
-	case 0x18    : printf("c4_print: cx=%d(%c)\n", cx, cx); break;
-	case 0x19    : printf("halting...\n"); asm volatile ("cli; hlt");
-	default : vregs->ax = -ENOSYS; break;
+	case C4_REAL : vregs->ax = do_real (ch);            break;
+	case 0x17    : printf("c4_puts: %s\n", (const char*)cx);     break;
+	case 0x18    : printf("c4_print: cx=%d=%#x(%c)\n", cx, cx);  break;
+	case 0x19    : printf("halting...\n"); do_idle();            break;
+	default :      vregs->ax = -ENOSYS;                          break;
 	};
 }
 

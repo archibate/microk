@@ -6,6 +6,17 @@
 
 
 static void serial_putc(char c);
+void my_putc(char c)
+{
+	c &= 0x7f;
+	if (c < ' ') {
+		serial_putc('^');
+		c += '@';
+	}
+	c &= 0x7f;
+	serial_putc(c);
+}
+
 void serial_server(void)
 {
 	TX_MSG msg;
@@ -13,7 +24,7 @@ void serial_server(void)
 	{
 		c4id_t cli = c4_wait(C4_ANY, &msg);
 		for (int i = 0; i < msg.tx_len; i++) {
-			serial_putc(msg.tx_data[i]);
+			my_putc(msg.tx_data[i]);
 		}
 		c4_send(cli, NULL);
 	}

@@ -5,8 +5,10 @@
 
 STRUCT(ICH_MSG)
 {
-	uint ich;
-	char ic_reserved[16];
+	union {
+		uint ich;
+		char ic_raw[20];
+	};
 };
 
 STRUCT(TX_MSG)

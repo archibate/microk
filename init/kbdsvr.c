@@ -15,6 +15,7 @@ void keyboard_server(void)
 	{
 		c4id_t cli = c4_wait(C4_ANY, &msg);
 		msg.ich = keyboard_getich();
+		msg.ic_raw[4] = 0;
 		c4_send(cli, &msg);
 	}
 }
@@ -33,14 +34,16 @@ again:
 
 	uint vc = keymap[scan];
 	switch (vc) {
-	case VK_CTRL :           ctrl_on = on;       goto again;
-	case VK_SHIFT:          shift_on = on;       goto again;
-	case VK_CAPS :  if (!on) caps_on = !caps_on; goto again;
-	default      :  if (!on)                     goto again;
+	case VK_RCTRL : case VK_CTRL :  ctrl_on = on;       goto again;
+	case VK_RSHIFT: case VK_SHIFT: shift_on = on;       goto again;
+	case VK_CAPS  :        if (!on) caps_on = !caps_on; goto again;
+	default       :        if (!on)                     goto again;
 	};
 	if (shift_on)
 		vc = keymap_shift[scan];
 	if (ctrl_on) {
+		if (vc == '?')
+			return 0x7f;
 		uint vcs = keymap_shift[scan];
 		if ('{' <= vcs && vcs <= '}')
 			vcs -= '{' - '[';

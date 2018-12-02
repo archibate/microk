@@ -3,6 +3,7 @@
 #include <types.h>
 #include <stddef.h>
 #include <memory.h>
+#include <string.h>
 #include <c4/api.h>
 
 #define CLIENT   0
@@ -20,6 +21,13 @@ int getich(int svr)
 	return msg.ich;
 }
 
+int getichmsg(int svr, ICH_MSG *msg)
+{
+	c4_send(svr, NULL);
+	c4_wait(svr, msg);
+	return msg->ich;
+}
+
 void txwrite(int svr, const char *buf, size_t size)
 {
 	TX_MSG msg;
@@ -34,11 +42,24 @@ void txwrite(int svr, const char *buf, size_t size)
 	c4_wait(svr, NULL);
 }
 
+void txputc(int svr, uchar ch)
+{
+	TX_MSG msg;
+	msg.tx_len = sizeof(ch);
+	msg.tx_data[0] = ch;
+	c4_send(svr, &msg);
+	c4_wait(svr, NULL);
+}
+
 void my_client(void)
 {
+	ICH_MSG msg;
 	while (1) {
-		uint ich = getich(KBDSVR);
-		txwrite(COMSVR, (void*)&ich, 1);
+		getichmsg(KBDSVR, &msg);
+		//c4_print(msg.ich);
+		txwrite(COMSVR, msg.ic_raw, strlen(msg.ic_raw));
+		/*if ((' ' <= ich && ich <= '~') || ich == '\n')
+			txputc(COMSVR, ich);*/
 	}
 }
 
@@ -48,6 +69,7 @@ void main(void)
 	{
 		if (!c4_fork(COMSVR, 2, NULL)) {
 			if (!c4_fork(IDLELO, 3, NULL)) {
+				c4_halt();
 			} else {
 				c4_actv(3, NULL);//
 				extern void serial_server(void);
@@ -63,6 +85,5 @@ void main(void)
 	{
 		c4_actv(1, NULL);//
 		my_client();
-		c4_halt();
 	}
 }
