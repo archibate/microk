@@ -81,7 +81,7 @@ void main(void)
 				if (!l4_fork(XTMSVR)) {
 					l4_cmap(VRAM_CAP, 0x0,    0xe0000000,     -1L);
 					l4_cmap(KMEM_CAP, 0x7000, 0xdffff000,  0x1000);
-#if 0
+#if 1
 					l4_mkcap(123, 0xe0000000);
 					l4_sendcap(CLIENT, 123); 
 					l4_mkcap(123, 0xe0001000);
@@ -92,9 +92,11 @@ void main(void)
 					const void *p = l4_lwrpga_getptr(&lwr);
 					l4_puts(p); // Hello, XTERM!
 					l4_lwrpga_reply(&lwr, 0);
-#endif
+#else
 					char buf[256];
 					l4_lwread(L4_ANY, buf, sizeof(buf));
+					l4_puts(buf);
+#endif
 #endif
 					extern int xterm_server(void *vram, void *vinfo_p);
 					xterm_server((void*)0xe0000000, (void*)0xdffffb00);
@@ -115,7 +117,7 @@ void main(void)
 		}
 	} else {
 		l4_actv(PATHSVR);//
-#if 0
+#if 1
 		__l4_recv(L4_ANY, NULL, 125);
 		l4_cmap(125, 0x0, 0xb0000000, -1L);
 		memset((void*)0xb0000000, 0x07, 4096);

@@ -2,7 +2,7 @@ au BufNewFile,BufRead .vim_localrc set ft=vim
 au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t l4id_t l4_recv_ret_t soff_t
 au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT CAP IF_REGS L4_MSG LWR_MSG LWR_CLI TX_MSG ICH_MSG SEGDESC GATEDESC
 au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_FRGSIZ L4_SEND L4_RECV L4_ACTV L4_FORK L4_CMAP L4_MKCAP L4_ISCAP L4_BLOCK L4_REPLY L4_ISRW PGSIZE
-au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ FILEMAX EBADFD EMMSG ENOCAP ENOTCAP EWBLOCK ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING
+au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ FILEMAX EBADFD EMMSG ELRWTERM ENOCAP ENOTCAP EWBLOCK ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING
 au BufNewFile,BufRead *.c,*.h syn keyword Function vpt vpd vregs wregs vcurr vldt MKWORD LOWORD HIWORD L4_IRQ
 au BufNewFile,BufRead *.c,*.h syn keyword Keyword STRUCT UNION L4_MSG_STRUCT END_L4_MSG_STRUCT assert __attribute__ ARRAY_SIZEOF
 au BufNewFile,BufRead *.c,*.h syn keyword Constant IRQ_TIMER IRQ_KEYBOARD IRQ_MOUSE

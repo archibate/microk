@@ -134,3 +134,4 @@
 	ENOCAP		: No such capability
 	EMMSG		: Too many messages
 	ENOTCAP		: Not a capability
+	ELRWTERM	: Long read/write terminated

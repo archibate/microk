@@ -136,3 +136,4 @@
 #define ENOCAP	134	// No such capability
 #define EMMSG	135	// Too many messages
 #define ENOTCAP	136	// Not a capability
+#define ELRWTERM	137	// Long read/write terminated

@@ -19,7 +19,7 @@ again:
 
 	LWR_MSG msg;
 	msg.voff = voff;
-	msg.size = size;
+	msg.size = flen;
 
 	l4_send(to, &msg);
 
@@ -34,14 +34,18 @@ again:
 	size -= flen;
 
 	ret = l4_recvich(to);
-	if (ret <= flen) {
-		//assert(ret == flen);
-		//l4_puts("ret!=flen");
+	if (ret < flen) {
+		l4_puts("ret < flen");
 		return ret;
 	}
-	if ((ssize_t)size >= 0)
+	if ((ssize_t)size > 0) {
 		goto again;
+	}
 
+	msg.voff = 0;
+	msg.size = -1;
+
+	l4_send(to, &msg);
 	return ret;
 }
 
@@ -53,10 +57,13 @@ ssize_t l4_lwread_ex(l4id_t fr, void *buf, size_t size, l4id_t *pfr)
 	int ret;
 again:
 	ret = l4_lwrpga_accept(&lwr, fr);
+	if (ret == -ELRWTERM)
+		goto out;
 	if (ret < 0)
 		return ret;
 	if (pfr)
 		*pfr = ret;
+	fr = ret;
 	const void *p = l4_lwrpga_getptr(&lwr);
 	size_t flen = lwr.size < size ? lwr.size : size;
 	memcpy(buf, p, flen);
@@ -66,11 +73,12 @@ again:
 	size -= flen;
 
 	if (flen < lwr.size)
-		return buf - buf0;
+		goto out;
 
-	if ((ssize_t)size >= 0)
+	if ((ssize_t)size > 0)
 		goto again;
 
+out:
 	return buf - buf0;
 }
 
@@ -109,6 +117,8 @@ l4id_t l4_lwrpga_accept(LWR_CLI *lwr, l4id_t fr)
 		return lwr->cli;
 	lwr->voff = msg.voff;
 	lwr->size = msg.size;
+	if (lwr->size == -1)
+		return -ELRWTERM;
 	//printf("lwr: cli=%d, voff=%d, size=%d\n", lwr->cli, lwr->voff, lwr->size);
 	if (lwr->voff > PGSIZE) {
 		//l4_puts("WARNING: lwr.voff overflows out of one page\n");

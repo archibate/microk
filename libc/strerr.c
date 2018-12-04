@@ -137,6 +137,7 @@ const char *err_msgs[] = {
 	"No such capability",
 	"Too many messages",
 	"Not a capability",
+	"Long read/write terminated",
 };
 
 const char *strerror(int err)

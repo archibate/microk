@@ -1,5 +1,6 @@
+L4_REPLY, L4_IRQRCV, ... distinquish them please!!!!!!!
+https://github.com/archibate/seL4/blob/master/src/kernel/thread.c: cancelIPC.etc..多学学人家!
 lread, lwrite wanna better. ref seL4??QNX??
-https://github.com/archibate/seL4/blob/master/src/kernel/thread.c: cancelIPC.etc..学学人家！
 irq!! sys.c: 557
 on_timer(): schedule.
 my path server!!!!
