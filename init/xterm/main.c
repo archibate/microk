@@ -1,5 +1,5 @@
-#include <libl4/l4/api.h>
-#include <libl4/ipcmsgs.h>
+#include <libl4/ichipc.h>
+#include <libl4/rwipc.h>
 #include <asm/vinfo.h>
 #include <memory.h>
 #include "asc16.h"
@@ -223,11 +223,19 @@ int xterm_server(void *vram, void *vinfo_p)
 
 	putcursor(AT(x, y), col, 16 - cur_max, 16 - cur_min);
 
-	ICH_MSG msg;
 	while (1) {
-		l4id_t cli = l4_wait(L4_ANY, &msg);
+		l4id_t cli;
+		char buf[256];
+		ssize_t size = l4_read_ex(L4_ANY, buf, sizeof(buf) - 1, &cli);
+		if (size < 0)
+			continue;
+		buf[size] = 0;
+		vmon_puts(buf);
+		//l4_sendich(cli, size);
+		/*ICH_MSG msg;
+		l4id_t cli = l4_recv(L4_ANY, &msg);
 		vmon_puts(msg.ic_raw);
-		l4_send(cli, NULL);
+		l4_send(cli, NULL);*/
 	}
 
 	return 0;

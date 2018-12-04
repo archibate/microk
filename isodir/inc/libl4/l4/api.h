@@ -1,75 +1,101 @@
 // vim: fdm=marker
 #pragma once
 
-#include <krnl4/l4/defs.h>
-#include <sizet.h>
+#include <libl4/l4/defs.h>
 #include <types.h>
 #include <stddef.h>
 #include <struct.h>
-STRUCT(UT_REGS) // short message, exactly 20 bytes
+
+#define __L4_MSG void
+
+STRUCT(l4_recv_ret_t)
 {
-	ulong bx, si, di, dx, bp;
+	int ret;
+	uint flags;
 };
 
-#define MKWORD(l, h)  (((l)&0xff)|(((h)&0xff)<<8))
-extern int l4_sysux(int ax, int cx, const void *snd, void *rcv);
-static int dbg_l4_sysux(int ax, int cx, const void *snd, void *rcv)
+static l4_recv_ret_t __l4_sysux(int ax, int cx, const __L4_MSG *snd, __L4_MSG *rcv)
 {
-	int ret = l4_sysux(ax, cx, snd, rcv);
-	if (ret < 0) {
-		*(volatile int*)(0xdead0000 + (ax << 12) - ret) = 0xdeadbeaf;
+	l4_recv_ret_t r;
+	asm volatile (	"call __asm_l4_sysux"
+			: "=a" (r.ret), "=c" (r.flags), "=d" (snd), "=b" (rcv)
+			: "a" (ax), "c" (cx), "d" (snd), "b" (rcv)
+			: "cc", "memory"
+		     );
+#if 1 // remove this when everything is complete. {{{
+	if (r.ret < 0) {
+		// well.. emm.. ugly method of debug but useful sometimes..
+		*(volatile int*)(0xdead0000 + (ax << 12) - r.ret) = 0xdeadbeaf;
 	}
-	return ret;
+#endif // }}}
+	return r;
 }
+static int l4_sysux(int ax, int cx, const __L4_MSG *snd, __L4_MSG *rcv)
+{
+	return __l4_sysux(ax, cx, snd, rcv).ret;
+}
+
 #define l4_puts(s)  l4_sysux(0x17, (int)(s), NULL, NULL)
 #define l4_print(x) l4_sysux(0x18, (x), NULL, NULL)
 #define l4_halt()   l4_sysux(0x19, 0, NULL, NULL)
+#define MKWORD(l, h)  (((l)&0xff)|(((h)&0xff)<<8))
 
-static int l4_send(l4id_t to, const void *arg)
+#define l4_send(to, msg) l4_send_ex(to, msg, L4_BLOCK)
+#define l4_send_ex(to, msg, flags) __l4_send(to, msg, flags, 0)
+static int __l4_send(l4id_t to, const __L4_MSG *msg, uint flags, cap_t capid)
 {
-	return dbg_l4_sysux(MKWORD(L4_SEND, 0), MKWORD(to, 0), arg, NULL);
+	return l4_sysux(MKWORD(L4_SEND, flags), MKWORD(to, capid), msg, NULL);
 }
 
-static l4id_t l4_wait(l4id_t fr, void *arg)
+static l4_recv_ret_t __l4_recv(l4id_t fr, __L4_MSG *msg, cap_t capid)
 {
-	return dbg_l4_sysux(MKWORD(L4_WAIT, 0), MKWORD(fr, 0), NULL, arg);
+	return __l4_sysux(MKWORD(L4_RECV, 0), MKWORD(fr, capid), NULL, msg);
 }
 
-static l4id_t l4_fork(cap_t tocap, l4id_t totid, void *rcv)
+static inline l4id_t l4_recv(l4id_t fr, __L4_MSG *msg)
 {
-	return l4_sysux(MKWORD(L4_FORK, 0), MKWORD(tocap, totid), NULL, rcv);
+	return __l4_recv(fr, msg, 0).ret;
 }
 
-static int l4_actv(cap_t to, const void *arg)
+static l4id_t l4_fork(cap_t tocap)
 {
-	return dbg_l4_sysux(MKWORD(L4_ACTV, 0), MKWORD(to, 0), arg, NULL);
+	return l4_sysux(MKWORD(L4_FORK, 0), MKWORD(tocap, 0), NULL, NULL);
 }
 
-static int l4_real(cap_t capid)
+static int l4_actv(cap_t tocid)
 {
-	return dbg_l4_sysux(MKWORD(L4_REAL, 0), MKWORD(0, capid), NULL, NULL);
+	return l4_sysux(MKWORD(L4_ACTV, 0), MKWORD(tocid, 0), NULL, NULL);
+}
+
+static ssize_t l4_cmap(cap_t capid, ulong moff, ulong vstart, size_t size)
+{
+	L4_MSG regs;
+	regs.bx = moff;
+	regs.di = vstart;
+	regs.dx = size;
+	return l4_sysux(MKWORD(L4_CMAP, 0), MKWORD(0, capid), &regs, NULL);
 }
 #if 0 // unimpl. api {{{
-static int l4_call(int to, const void *arg, void *ret)
+static int l4_call(int to, const __L4_MSG *arg, __L4_MSG *ret)
 {
 	return dbg_l4_sysux(MKWORD(L4_CALL, 0), MKWORD(to, 0), arg, ret);
 }
 
-static int l4_sendmsg(int to, const void *msg, size_t len)
+static int l4_sendmsg(int to, const __L4_MSG *msg, size_t len)
 {
 	UT_REGS reg;
 	reg.dx = (ulong)msg;
 	return dbg_l4_sysux(MKWORD(L4_SEND, len), MKWORD(to, 0), &reg, NULL);
 }
 
-static int l4_waitmsg(int fr, void *msg, size_t len)
+static int l4_recvmsg(int fr, __L4_MSG *msg, size_t len)
 {
 	UT_REGS reg;
 	reg.dx = (ulong)msg;
-	return dbg_l4_sysux(MKWORD(L4_WAIT, len), MKWORD(fr, 0), &reg, NULL);
+	return dbg_l4_sysux(MKWORD(L4_RECV, len), MKWORD(fr, 0), &reg, NULL);
 }
 
-static int l4_retn(int to, const void *ret)
+static int l4_retn(int to, const __L4_MSG *ret)
 {
 	return dbg_l4_sysux(MKWORD(L4_RETN, 0), MKWORD(to, 0), ret, NULL);
 }

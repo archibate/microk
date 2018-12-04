@@ -46,8 +46,14 @@ run: $(FDIMG)
 
 PHONY+=test
 test: $(FDIMG)
+	-rm -rf /tmp/l4benchsamps
 	$(SH) $Sqemu.sh -t
+
+PHONY+=bench
+bench:
+	make test
 	$(PYTHON) $Sbenchplot.py /tmp/l4benchsamps
+	display figure.png
 
 PHONY+=debug
 debug: $(FDIMG)

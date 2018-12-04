@@ -1,5 +1,6 @@
 start
 main
+pathsvr/main
 kbdsvr/kbdsvr
 kbdsvr/keymap
 comsvr/comsvr

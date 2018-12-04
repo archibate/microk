@@ -4,26 +4,23 @@
 #include <struct.h>
 STRUCT(MEM_CAP)
 {
-	union {
-		/*struct {
-			uint p : 1;
-			uint w : 1;
-			uint u : 1;
-			uint pwt : 1;
-			uint pcd : 1;
-			uint a : 1;
-			uint d : 1;
-			uint ps : 1;
-			union {
-				uint pat : 1;
-				uint g : 1;
-			};
-			uint avl : 3;
-			uint sel : 20;
-		} __attribute__((packed));*/
-		uint pgattr : 12;
-		ulong pte;
-	};
+	/*struct { // {{{
+	  uint p : 1;
+	  uint w : 1;
+	  uint u : 1;
+	  uint pwt : 1;
+	  uint pcd : 1;
+	  uint a : 1;
+	  uint d : 1;
+	  uint ps : 1;
+	  union {
+	  uint pat : 1;
+	  uint g : 1;
+	  };
+	  uint avl : 3;
+	  uint sel : 20;
+	  } __attribute__((packed));*/ // }}}
+	ulong pte;
 	ulong va;
 	ulong size;
 };
@@ -40,19 +37,6 @@ STRUCT(THR_CAP)
 	TCB *tcb;
 };
 
-#include "sem.h"
-STRUCT(SEM_CAP)
-{
-	struct {
-		uint valid : 1;
-		uint perm_rw : 1;
-		uint mbz : 1;
-		uint mb1 : 1;
-		uint reserved : 28;
-	} __attribute__((packed));
-	SEM *sem;
-};
-
 STRUCT(CAP)
 {
 	union {
@@ -65,7 +49,7 @@ STRUCT(CAP)
 		uint raw[3];
 		MEM_CAP mem;
 		THR_CAP thr;
-		SEM_CAP sem;
+		//SEM_CAP sem;
 	};
 };
 
@@ -83,13 +67,4 @@ static void setup_thr_cap(CAP *cap, TCB *tcb, int perm_rw)
 	cap->thr.mbz = 0;
 	cap->thr.tcb = tcb;
 	cap->thr.perm_rw = perm_rw;
-}
-
-static void setup_sem_cap(CAP *cap, SEM *sem, int perm_rw)
-{
-	cap->sem.valid = 1;
-	cap->sem.mbz = 0;
-	cap->sem.mb1 = 1;
-	cap->sem.sem = sem;
-	cap->sem.perm_rw = perm_rw;
 }

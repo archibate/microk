@@ -14,3 +14,4 @@ bin/*
 *.out
 *.ign
 .DS_Store
+__pycache__

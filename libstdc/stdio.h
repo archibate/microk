@@ -68,10 +68,10 @@ int __fgetc(FILE *f)
 }
 
 static inline
-int fgetc_ex(FILE *f, void (*will_wait_cb)(void))
+int fgetc_ex(FILE *f, void (*will_recv_cb)(void))
 {
 	if (f->f_bpos >= f->f_bsize) {
-		will_wait_cb();
+		will_recv_cb();
 		file_rd_flush(f);
 	}
 	return __fgetc(f);

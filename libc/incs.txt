@@ -6,7 +6,6 @@ sprintf.h
 strerr.h
 string.h
 wcsing.h
-sizet.h
 stddef.h
 stdarg.h
 wchar.h

@@ -8,6 +8,5 @@ void main(void)
 	init(tss);
 	init(idt);
 	init(pic);
-	init(keyboard);
 	init(sys);
 }

@@ -1,5 +1,7 @@
 // vim: fdm=marker
 //#define TPR
+#define YOUCAP
+//#define YOUGLB
 //#define PMR
 #include <struct.h>
 #include <memory.h>
@@ -7,10 +9,10 @@
 #include <types.h>
 #include <l4/defs.h>
 #include <errno.h>
+#include <pool.h>
 #include "print.h"
 #include "ptregs.h"
 #include "panic.h"
-#include "pool.h"
 #include "caps.h"
 #include "clock.h"
 #include "tcb.h"
@@ -27,6 +29,8 @@ ulong ppage(void)
 
 void free_ppg(ulong pa)
 {
+	/*if (pa > 0x200000)
+		bzero((void*)pa, 4096);*/
 	POOL_FREE(&ppgpool, pa);
 }
 
@@ -34,7 +38,8 @@ void init_ppg(void)
 {
 	POOL_INIT(&ppgpool);
 	for (ulong pa = 0x400000; pa < 0x400000 + POOL_SIZE(&ppgpool) * 4096; pa += 4096)
-		POOL_FREE(&ppgpool, pa);
+		//POOL_FREE(&ppgpool, pa);
+		free_ppg(pa);
 }
 // }}}
 // mmu asm operations: done {{{
@@ -61,6 +66,13 @@ void enacr0(ulong flags)
 	asm volatile ("mov %%cr0,%0" : "=r" (cr0) ::);
 	asm volatile ("mov %0,%%cr0" :: "r" (cr0 | flags) : "memory");
 }
+
+void enacr4(ulong flags)
+{
+	ulong cr4;
+	asm volatile ("mov %%cr4,%0" : "=r" (cr4) ::);
+	asm volatile ("mov %0,%%cr4" :: "r" (cr4 | flags) : "memory");
+}
 // }}}
 void init_vpt(void) // {{{
 {
@@ -69,7 +81,11 @@ void init_vpt(void) // {{{
 
 	bzero(pgd, 4096);
 	bzero(pgt, 4096);
+#ifdef YOUGLB
+	pgd[0]    = (ulong)pgt | 3 | 256;
+#else
 	pgd[0]    = (ulong)pgt | 3;
+#endif
 	pgd[1023] = (ulong)pgd | 3 | 24;
 
 	for (ulong pa = 0x0; pa < 0x400000; pa += 4096)
@@ -78,7 +94,10 @@ void init_vpt(void) // {{{
 	pgt[0]    = 0;   // deny NULL pointer
 
 	setcr3((ulong)pgd);
-	enacr0(0x80000000);
+	enacr0(1<<31);
+#ifdef YOUGLB
+	enacr4(1<<7);
+#endif
 } // }}}
 #define V_VOLATILE //volatile
 #define vpt      ((V_VOLATILE ulong*)0xffc00000)
@@ -95,9 +114,9 @@ void map_page(ulong va, ulong pte)
 	uint pti = va >> 12;
 
 	if (!(1 & vpd[pdi])) {
-		vpd[pdi] = ppage() | 7;
+		ulong pgt = ppage();
+		vpd[pdi] = pgt | 7;
 		invlpg(-4096L&(ulong)&vpt[pti]);
-		//bzero(&vpt[pti & 1023], 4096);
 	}
 	vpt[pti] = pte;
 	invlpg(va);
@@ -281,6 +300,7 @@ l4_ipc(to, from, flags) := { l4_send(to, flags); l4_recieve(from, flags); }
 #endif // }}}
 #endif // }}}
 
+ulong idleM;
 ulong M[MAXTASK];
 TCB T[MAXTASK];
 
@@ -359,14 +379,6 @@ int do_send(cap_t toid)
 	return 0;
 }*/
 // }}}
-SEM *getcapsem(cap_t capid)
-{
-	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!cap->valid || cap->is_mem || !cap->is_sem)
-		return 0;
-	return cap->sem.sem;
-}
-
 TCB *getcaptcb(cap_t capid)
 {
 	V_VOLATILE CAP *cap = &vregs->C[capid];
@@ -397,7 +409,7 @@ l4id_t tidof(TCB *tcb)
 #else
 #define tidof(t) ((t)->mid)
 #endif
-
+#if 0 // {{{
 int do_real(cap_t capid) // todo: will later to be removed, done in page fault instead
 {
 	tprintf("do_real(%d)\n", capid);
@@ -412,25 +424,26 @@ int do_real(cap_t capid) // todo: will later to be removed, done in page fault i
 		map_page(va, pte);
 	return 0;
 }
+#endif // }}}
 
-int do_share(l4id_t toid, cap_t capid, cap_t hiscid, int granted)
+ssize_t do_cmap(cap_t capid, off_t moff, ulong vstart, size_t size)
 {
-	tprintf("do_share(%d,%d,%d)\n", toid, capid, granted);
-	assert(toid != 0);
+	tprintf("do_cmap(%d,%#x,%#p,%#x)\n", capid, moff, vstart, size);
 
-	TCB *to = getidtcb(toid);
-	if (!to) return -ESRCH;
-
-	assert(to->state == BLOCKED);
+	moff &= -4096L;
+	vstart &= -4096L;
 
 	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!cap->valid) return -ENOCAP;
-	CAP c = *cap;
-	if (granted)
-		cap->valid = 0;
-	settask(to);
-	vregs->C[hiscid] = c;
-	return 0;
+	if (!cap->valid || !cap->is_mem)
+		return -ENOCAP;
+	if (size > cap->mem.size - moff)
+		size = cap->mem.size;
+	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
+	for ( ulong va = vstart, pte = cap->mem.pte + moff;
+		va < vstart + size;
+		va += 4096, pte += 4096 )
+		map_page(va, pte);
+	return size;
 }
 
 void __attribute__((noreturn)) do_idle(void);
@@ -445,7 +458,8 @@ void schedule(void)
 			return;
 		}
 	}
-	//do_idle();
+	setcr3(idleM);
+	do_idle();
 	panic("schedule(): no runnable task!\n");
 }
 void on_timer(void)
@@ -470,14 +484,14 @@ static inline void fsetregp(ulong pte)
 	free_ppg(vpt[0x400] & -4096L);
 	fsetregp(pte);
 } // }}}
-/*todo:int do_retnwait(void)//{{{
+/*todo:int do_retnrecv(void)//{{{
 {
 	TCB *from = vcurr->recving;
 	if (!from)
 		return -ENCALL;
-	if (from->state != WAITRET)
-		return -ENWAIT;
-	tprintf("ipc_retnwait: returning\n");
+	if (from->state != RECVRET)
+		return -ENRECV;
+	tprintf("ipc_retnrecv: returning\n");
 	vcurr->recving = from->next;
 	allocregp();
 	from->state = RUNNING;
@@ -497,9 +511,19 @@ int is_expecting(l4id_t expecting, l4id_t id)
 	return 0;
 }
 
-l4id_t do_wait(l4id_t exptid)
+MSG *alloc_msgslot(MSG *msgs)
 {
-	tprintf("%d:do_wait(%d)\n", tidof(vcurr), exptid);
+	for (int i = 0; i < MAXMSG; i++) {
+		if (!msgs[i].is_valid)
+			return &msgs[i];
+	}
+	panic("alloc_msgslot: Too many messages\n");
+	return 0;
+}
+
+int do_recv(l4id_t exptid, cap_t capid)
+{
+	tprintf("%d:do_recv(%d)\n", tidof(vcurr), exptid);
 	ticktsc();
 
 	for (int i = 0; i < MAXMSG; i++) {
@@ -511,8 +535,21 @@ l4id_t do_wait(l4id_t exptid)
 		if (is_expecting(exptid, tid))
 		{
 			tprintf("%d/%d:direct recv %d/%d\n", tidof(vcurr), exptid, msg - vregs->msgs, tid);
-			memcpy(&vregs->msg0dat, &msg->dat, sizeof(msg->dat));
+			if (msg->flags & L4_BLOCK) {
+				assert(T[tid].state == ONSEND);
+				T[tid].state = RUNNING;
+			}
+#ifdef YOUCAP
+			if (msg->flags & L4_ISCAP) {
+				if (capid != 0)
+					memcpy(&vregs->C[capid], &msg->dat.cap, sizeof(CAP));
+			} else
+#endif
+				memcpy(&vregs->msg0dat, &msg->dat, sizeof(msg->dat));
 			msg->is_valid = 0;
+#ifdef YOUCAP
+			vregs->cx = msg->flags;
+#endif
 			testp(w1);
 			return tid;
 		}
@@ -520,25 +557,42 @@ l4id_t do_wait(l4id_t exptid)
 	tprintf("block on recv\n");
 	vcurr->state = ONRECV;
 	vcurr->expecting = exptid;
+	vregs->waitcap = capid;
 	schedule();
 	testp(w2);
 	return 0;
 }
-
-MSG *alloc_msgslot(MSG *msgs)
+/*int do_accpt(l4id_t frid, cap_t capid) // {{{
 {
-	for (int i = 0; i < MAXMSG; i++) {
-		if (!msgs[i].is_valid)
-			return &msgs[i];
-	}
-	panic("alloc_msgslot: Too many messages\n");
-	return 0;
+	tprintf("do_accpt(%d,%d)\n", frid, capid);
+
+	return do_recv(frid);
 }
 
-int do_send(l4id_t toid)
+int do_share(l4id_t toid, cap_t capid, int grant, int block)
 {
-	tprintf("%d:do_send(toid=%d)\n", tidof(vcurr), toid);
+	tprintf("do_share(toid=%d,capid=%d,grant=%d,block=%d)\n", toid, capid, granted, block);
+
+	TCB *to = getidtcb(toid);
+	if (!to) return -ESRCH;
+
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid) return -ENOCAP;
+	CAP c = *cap;
+	if (grant)
+		cap->valid = 0;
+
+	return do_send(toid, block);
+}*/ // }}}
+int do_send(l4id_t toid, uint flags, cap_t capid)
+{
+	tprintf("%d:do_send(toid=%d,flags=%d)(dx=%d)\n", tidof(vcurr), toid, flags, vregs->msg0dat.dx);
 	ticktsc();
+
+#ifdef YOUCAP
+	if ((flags & L4_ISCAP) && !vregs->C[capid].valid)
+		return -ENOCAP;
+#endif
 
 	TCB *to = getidtcb(toid);
 	if (!to) return -ESRCH;
@@ -547,32 +601,41 @@ int do_send(l4id_t toid)
 	l4id_t mytid = tidof(vcurr);
 	if (to->state == ONRECV && is_expecting(to->expecting, mytid))
 	{
-		to->state = RUNNING;
-#if 1 // good
+		tprintf("direct send\n");
 		assert(to->wtmpte);
 		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
-		memcpy(&wregs->msg0dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
-		settask(to);
-		testp(s1);
-#else
-		ulong mypte = vpt[0x400];
-		settask(to);
-		vpt[0x403] = mypte;
-		invlpg((ulong)wregs);
-		memcpy(&vregs->msg0dat, &wregs->msg0dat, sizeof(vregs->msg0dat));
-		testp(s1);
+		to->state = RUNNING;
+		wregs->cx = flags;
+#ifdef YOUCAP
+		if (flags & L4_ISCAP)
+			memcpy(&wregs->C[wregs->waitcap], &vregs->C[capid], sizeof(CAP));
+		else
 #endif
+			memcpy(&wregs->msg0dat, &vregs->msg0dat, sizeof(MSGDAT));
+		settask(to);
+		testp(s1);
 		return mytid;
 	}
 	else
 	{
+		tprintf("blocky on send\n");
+		/*if (to->state == ONSEND)
+			assert(to->sending != mytid);*/
+		if (flags & L4_BLOCK)
+			vcurr->state = ONSEND;
 		assert(to->wtmpte);
 		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
 		MSG *msg = alloc_msgslot(wregs->msgs);
-		memcpy(&msg->dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
+#ifdef YOUCAP // good!
+		if (flags & L4_ISCAP)
+			memcpy(&msg->dat.cap, &vregs->C[capid], sizeof(CAP));
+		else
+#endif
+			memcpy(&msg->dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
 		msg->is_valid = 1;
+		msg->flags = flags;
 		msg->tid = mytid;
 		if (to->state == RUNNING)
 			settask(to);
@@ -611,6 +674,7 @@ int do_softirq(int irq, uint dx)
 		MSG *msg = alloc_msgslot(wregs->msgs);
 		msg->dat.dx = dx;
 		msg->is_valid = 1;
+		msg->flags = 0;
 		msg->tid = L4_IRQ(irq);
 		if (to->state == RUNNING)
 			settask(to);
@@ -623,7 +687,7 @@ int do_softirq(int irq, uint dx)
 
 void __attribute__((noreturn)) do_idle(void)
 {
-	printf("do_idle() called\n");
+	tprintf("do_idle() called\n");
 	asm volatile (
 		"mov %0, %%esp\n"
 		"1:\nsti\nhlt\n"
@@ -654,7 +718,7 @@ void on_hwirq(int irq)
 	if (!to) return -ESRCH;
 	if (to->state == ONRECV) {
 		tprintf("ipc_call: direct send\n");
-		vcurr->state = WAITRET;
+		vcurr->state = RECVRET;
 		ulong regp = getregp();
 		to->state = RUNNING;
 		settask(to);
@@ -672,19 +736,19 @@ void on_hwirq(int irq)
 	return 0;
 }
 
-int do_wait(void)
+int do_recv(void)
 {
-	tprintf("do_wait\n");
+	tprintf("do_recv\n");
 	ticktsc();
 
 	TCB *from = vcurr->recving;
 	if (from) {
-		tprintf("ipc_wait: direct recv\n");
+		tprintf("ipc_recv: direct recv\n");
 		assert(from->state == ONSEND);
-		from->state = WAITRET;
+		from->state = RECVRET;
 		fsetregp(from->regp);
 	} else {
-		tprintf("ipc_wait: block on recv\n");
+		tprintf("ipc_recv: block on recv\n");
 		vcurr->state = ONRECV;
 		schedule();
 	}
@@ -701,7 +765,7 @@ int do_retn(cap_t toid)
 	TCB *from = / *toid ? getcaptcb(toid) : * /vcurr->recving;
 	if (!from)
 		return -ESRCH;
-	if (from->state != WAITRET)
+	if (from->state != RECVRET)
 		return -EWBLOCK;
 	tprintf("ipc_retn: returning last\n");
 	if (toid) vcurr->recving = from->next;
@@ -721,28 +785,36 @@ int do_actv(cap_t toid)
 	assert(to->state == BLOCKED);
 	to->state = RUNNING;
 
-	//ulong mypte = vpt[0x400];
-	//IF_REGS *myregs = tmpg(mypte & -4096L);
-	//settask(to);//xxx
-	//bcopy(myregs->needcpy, vregs->needcpy, sizeof(vregs->needcpy));
-	//untpmg(myregs);
+	ulong mypte = vpt[0x400];
+	settask(to);//xxx
+	vpt[0x403] = mypte;
+	invlpg((ulong)wregs);
+	bcopy(&wregs->msg0dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
 	return 0;
 }
 
-int do_fork(cap_t tocid, l4id_t mid)
+l4id_t alloc_tid(void)
 {
-	tprintf("do_fork(%d,%d)\n", tocid, mid);
-	assert(!M[mid]);
+	for (l4id_t i = 0; i < MAXTASK; i++)
+		if (!T[i].state)
+			return i;
+	panic("alloc_tid: Too much task!!\n");
+}
 
-	TCB *to = &T[mid];
-	to->mid = mid;
+int do_fork(cap_t tocid)
+{
+	tprintf("do_fork(%d)\n", tocid);
+	l4id_t tid = alloc_tid();
+
+	TCB *to = &T[tid];
+	to->mid = tid;
 	to->state = BLOCKED;
 
 	ulong oldcr3 = getcr3();
 
 	vregs->ax = 0;
-	M[mid] = copiedpgd();
-	setcr3(M[mid]);
+	M[tid] = copiedpgd();
+	setcr3(M[tid]);
 
 	forkizevpd();
 	setup_thr_cap((CAP*)&vregs->C[0],     to, 1);
@@ -751,7 +823,7 @@ int do_fork(cap_t tocid, l4id_t mid)
 
 	setcr3(oldcr3);
 	setup_thr_cap((CAP*)&vregs->C[tocid], to, 1);
-	return 7;
+	return tid;
 }
 
 void syscall(uint ax, uint cx)
@@ -761,15 +833,13 @@ void syscall(uint ax, uint cx)
 	assert(vcurr->state == RUNNING);
 	switch (al)
 	{
-	case L4_SEND : vregs->ax = do_send (cl/*, (const void*)vregs->dx, ah*/); break;
-	case L4_WAIT : vregs->ax = do_wait (cl/*,       (void*)vregs->dx, ah*/); break;
-	case L4_FORK : vregs->ax = do_fork (cl, ch);        break;
-	case L4_ACTV : vregs->ax = do_actv (cl);            break;
-	case L4_SHARE: vregs->ax = do_share(cl, ch, ah, 0); break;
-	case L4_GRANT: vregs->ax = do_share(cl, ch, ah, 1); break;
-	case L4_REAL : vregs->ax = do_real (ch);            break;
-	case 0x17    : printf("l4_puts: %s\n", (const char*)cx);     break;
-	case 0x18    : printf("l4_print: cx=%d=%#x(%c)\n", cx, cx);  break;
+	case L4_SEND : vregs->ax = do_send (cl, ah, ch); break;
+	case L4_RECV : vregs->ax = do_recv (cl,     ch); break;
+	case L4_FORK : vregs->ax = do_fork (cl        ); break;
+	case L4_ACTV : vregs->ax = do_actv (cl        ); break;
+	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.dx); break;
+	case 0x17    : printf("%d:l4_puts: %s\n", tidof(vcurr), (const char*)cx);    break;
+	case 0x18    : printf("%d:l4_print: cx=%d=%#x(%c)\n", tidof(vcurr), cx, cx); break;
 	case 0x19    : printf("halting...\n"); do_idle();            break;
 	default :      vregs->ax = -ENOSYS;                          break;
 	};
@@ -812,13 +882,11 @@ void map_pages_in(ulong vbeg, ulong ptebeg, ulong size)
 extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
 
 static CAP vram_cap = {
-	.mem.va = 0xe0000000,
 	.mem.size = 800 * 600,
 	.mem.pte = 0xfd000000|7,
 };
 
 static CAP kmem_cap = {
-	.mem.va = 0xa0000000,
 	.mem.size = 0x400000,
 	.mem.pte = 0x00000000|5,
 };
@@ -833,18 +901,24 @@ void init_sys(void)
 	new_page    (  0x400000);
 	new_page    (  0x401000);
 	new_page    (  0x402000);
+
+	ulong oldpgd = getcr3();
+	idleM = copiedpgd();
+	setcr3(idleM);
+	forkizevpd();
+	setcr3(oldpgd);
+
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
+	new_pages_in(0x10000000 + _initrd_end - _initrd,  0x8000          );
 	new_pages_in(0xfeed0000,                          0x8000          );
 
-	irqsvr[IRQ_KEYBOARD] = &T[1];
+	set_irq_enable(IRQ_KEYBOARD, 1);
+	irqsvr[IRQ_KEYBOARD] = &T[2];
 
 	vcurr = &T[0];
 	vcurr->mid = 0;
 	vcurr->state = RUNNING;
 	setup_thr_cap((CAP*)&vregs->C[0], vcurr, 1);
-
-	static SEM sem0;
-	setup_sem_cap((CAP*)&vregs->C[6], &sem0, 1);
 
 	vcurr->wtmpte = vpt[0x400];
 

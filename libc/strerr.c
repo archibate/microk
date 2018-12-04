@@ -136,6 +136,7 @@ const char *err_msgs[] = {
 	"Memory page has hardware error",
 	"No such capability",
 	"Too many messages",
+	"Not a capability",
 };
 
 const char *strerror(int err)

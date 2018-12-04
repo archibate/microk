@@ -1,16 +1,19 @@
 au BufNewFile,BufRead .vim_localrc set ft=vim
-au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t ipc_data_t l4id_t s4id_t
-au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT SEM SPACE FPAGE MFRAG CAP CSPACE GENERIC_CAP IF_REGS UT_REGS TX_MSG ICH_MSG SEGDESC GATEDESC
-au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_IPC L4_SEND L4_RECV L4_CALL L4_WAIT L4_RETN L4_ACTV L4_FORK L4_SHARE L4_GRANT L4_REAL
-au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ TIME0 ENOCAP EWBLOCK ENWAIT ENCALL ONRECV ONSEND WAITRET BLOCKED RUNNING
+au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t ipc_data_t l4id_t s4id_t l4_recv_ret_t soff_t
+au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT SEM SPACE FPAGE MFRAG CAP CSPACE GENERIC_CAP IF_REGS UT_REGS L4_MSG __L4_MSG LWR_MSG LWR_CLI TX_MSG ICH_MSG SEGDESC GATEDESC
+au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_FRGSIZ L4_IPC L4_SEND L4_RECV L4_CALL L4_WAIT L4_RETN L4_ACTV L4_FORK L4_SHARE L4_GRANT L4_ACCPT L4_REAL L4_ISCAP L4_BLOCK L4_REPLY L4_CMAP L4_MKCAP L4_ISUS L4_ISRW PGSIZE
+au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ EBADFD FILEMAX TIME0 ENOCAP ENOTCAP EWBLOCK ENWAIT ENCALL ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING EMMSG
 au BufNewFile,BufRead *.c,*.h syn keyword Function vpt vpd vregs wregs wtopg vcurr vcspace vldt LCMP MKWORD LOWORD HIWORD L4_IRQ
 au BufNewFile,BufRead *.c,*.h syn keyword Keyword STRUCT UNION assert __attribute__ ARRAY_SIZEOF
 au BufNewFile,BufRead *.c,*.h syn keyword Constant IRQ_TIMER IRQ_KEYBOARD IRQ_MOUSE
 au BufNewFile,BufRead *.c,*.h syn keyword Typedef POOL_TYPE
 
+set fdm=marker
+
 nnoremap <F5> :wa<CR>:!make -B run<CR><CR>
 nnoremap <F6> :wa<CR>:!make -B debug DEBUG=1<CR><CR>
 nnoremap <F7> :wa<CR>:!make -B bochsrun<CR><CR>
-nnoremap <F12> :wa<CR>:!make -B test OPTIMIZE=3<CR>
+nnoremap <F9> :wa<CR>:!make test OPTIMIZE=3<CR>
+nnoremap <F12> :wa<CR>:!make -B bench OPTIMIZE=3<CR>
 
 inoremap jk <ESC>

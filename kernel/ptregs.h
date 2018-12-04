@@ -2,13 +2,11 @@
 
 #include <types.h>
 #include <struct.h>
+#include "l4/defs.h"
 #include "caps.h"
 #include "msg.h"
 
 // syscall args: ax(cx, dx, bx, di, si, bp)
-
-#define MAXCAP 256
-typedef uchar cap_t; // auto warp for MAXCAP = 256
 
 STRUCT(IF_REGS)
 {
@@ -18,6 +16,7 @@ STRUCT(IF_REGS)
 	ulong pc, cs, eflags, sp, ss;
 	MSG msgs[MAXMSG];
 	CAP C[MAXCAP]; // sized 3072 bytes // try to make this into one page?
+	cap_t waitcap;
 } __attribute__((packed));
 
 static inline void __unused_func2(void)

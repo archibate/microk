@@ -1,0 +1,7 @@
+au BufNewFile,BufRead .vim_localrc set ft=vim
+au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong
+au BufNewFile,BufRead *.c,*.h syn keyword Keyword STRUCT UNION assert __attribute__ ARRAY_SIZEOF
+au BufNewFile,BufRead *.c nnoremap <F5> :wa<CR>:!gcc % && ./a.out<CR>
+au BufNewFile,BufRead *.py nnoremap <F5> :wa<CR>:!python %<CR>
+
+inoremap jk <ESC>

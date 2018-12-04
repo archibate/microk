@@ -16,5 +16,5 @@ PHONY+=install
 install: $(IMAGE)
 
 
-INCLUDE+=kbdsvr comsvr xterm
+INCLUDE+=kbdsvr comsvr xterm pathsvr
 include $Mend.mak

@@ -1,5 +1,5 @@
-#include <libl4/ipcmsgs.h>
 #include <libl4/l4/api.h>
+#include <libl4/rwipc.h>
 #include <asm/ioport.h>
 
 
@@ -18,14 +18,18 @@ void my_putc(char c)
 
 void serial_server(void)
 {
-	TX_MSG msg;
+	char buf[256];
 	while (1)
 	{
-		l4id_t cli = l4_wait(L4_ANY, &msg);
-		for (int i = 0; i < msg.tx_len; i++) {
-			my_putc(msg.tx_data[i]);
-		}
-		l4_send(cli, NULL);
+		l4id_t cli;
+		ssize_t size = l4_read_ex(L4_ANY, buf, sizeof(buf), &cli);
+#ifdef PMR
+		continue;
+#endif
+		for (int i = 0; i < size; i++)
+			my_putc(buf[i]);
+		//l4_puts("!!!!!!!!!!!!!!!");
+		//l4_send_ex(cli, NULL, 0);
 	}
 }
 

@@ -37,4 +37,6 @@ DEL=rm -rf
 COPY=cp
 CAT=cat
 SH=sh
+COMPRESS=$Tcompress
+UNCOMPRESS=$Tuncompress
 MKEXFHDR=$(PYTHON) $Tmk-exf-header.py

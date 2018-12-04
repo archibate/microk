@@ -18,7 +18,7 @@ void server(char *vram)
 	for (int i = 0; i < 800 * 600; i += sizeof(reg))
 	{
 		/*if (i % 8800 >= 8800 - sizeof(reg)) */
-		l4_wait(CLIENT, &reg);
+		l4_recv(CLIENT, &reg);
 		memcpy(vram + i, &reg, sizeof(reg));
 		l4_send(CLIENT, NULL);
 	}
@@ -145,7 +145,7 @@ void client(char *ramdisk)
 		memcpy(&reg, ramdisk + i, sizeof(reg));
 		//memset(&reg, i / 8000, sizeof(reg));
 		l4_send(SERVER, &reg);
-		l4_wait(SERVER, NULL);
+		l4_recv(SERVER, NULL);
 	}
 }
 

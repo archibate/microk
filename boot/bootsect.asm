@@ -1,12 +1,12 @@
 ; vim: ft=nasm ai
 
 CYLS	equ	10
-KERNADR	equ	0x100000
+KERNADR	equ	0x100000 ; KTMPADR
 VINFO	equ	0x7b00
 VGAMODE equ	0x13
 ;VBEMODE equ	0x118
-VBEMODE equ	0x103
-;VBEMODE equ	0x13
+;VBEMODE equ	0x103
+VBEMODE equ	0x13
 
 	org 0x7c00
 
@@ -186,6 +186,7 @@ load_kern:
 	sub esi, ecx ; eeee...
 	sub esi, ecx ; - two clus
 	mov edi, KERNADR
+	push ebp
 .begin:
 	and eax, 0xfff
 	cmp ax, 0xff7
@@ -215,6 +216,7 @@ load_kern:
 	shr ax, 4
 	jmp .begin
 .done:
+	pop ebp
 	jmp dword 0x0008:KERNADR
 
 memcpy:

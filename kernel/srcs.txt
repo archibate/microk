@@ -5,7 +5,6 @@ desc
 tss
 syscall
 sys
-keyboard
 irq
 timer
 irqents
@@ -15,4 +14,3 @@ expdump
 panic
 print
 serial
-speaker

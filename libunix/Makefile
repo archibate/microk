@@ -1,5 +1,6 @@
 D=../
 NAME=libunix
+INCNAME=.
 KTE=a
 
 default: all
@@ -16,9 +17,6 @@ PHONY+=install
 install: $(IMAGE)
 	cp $< $Nlib/
 
-PHONY+=install-inc
-install-inc: $(shell cat incs.txt)
-	cp -r $^ $Ninc
 
-
+include $Minsinc.mak
 include $Mend.mak

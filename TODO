@@ -1,3 +1,5 @@
 irq!! sys.c: 557
 on_timer(): schedule.
+my path server!!!!
 wanna do_send & do_softirq merged to be better.
+use shared mapping on read/write!!!

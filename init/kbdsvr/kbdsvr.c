@@ -11,7 +11,7 @@ void keyboard_server(void)
 	ICH_MSG msg;
 	while (1)
 	{
-		l4id_t cli = l4_wait(L4_ANY, &msg);
+		l4id_t cli = l4_recv(L4_ANY, &msg);
 		msg.ich = keyboard_getich();
 		msg.ic_raw[4] = 0;
 		l4_send(cli, &msg);
@@ -23,9 +23,9 @@ static _Bool ctrl_on, shift_on, caps_on;
 uint keyboard_getich(void)
 // ref: https://baike.so.com/doc/7103239-7326232.html
 {
-	UT_REGS regs;
+	L4_MSG regs;
 again:
-	l4_wait(L4_IRQ(IRQ_KEYBOARD), &regs);
+	l4_recv(L4_IRQ(IRQ_KEYBOARD), &regs);
 	uint scan = regs.dx;
 	_Bool on = !(scan & 0x80);
 	scan &= 0x7f;

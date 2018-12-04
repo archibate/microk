@@ -1,6 +1,7 @@
 .incl
 libc
 libl4
+libunix
 init
 boot
 kernel
