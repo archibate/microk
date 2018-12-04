@@ -3,11 +3,11 @@
 #include <libl4/l4/api.h>
 #include <libl4/ipcmsgs.h>
 
-static void l4_sendich_ex(l4id_t to, uint ich, int flags)
+static int l4_sendich_ex(l4id_t to, uint ich, int flags)
 {
 	ICH_MSG icmsg;
 	icmsg.ich = ich;
-	l4_send_ex(to, &icmsg, flags);
+	return l4_send_ex(to, &icmsg, flags);
 }
 
 #define l4_sendich(to, ich) l4_sendich_ex(to, ich, L4_BLOCK)

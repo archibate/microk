@@ -16,10 +16,10 @@
 #define MAXIRQ   16
 #define L4_BLOCK 1
 #define L4_ISCAP 2
+#define L4_REPLY 4
 #define L4_IRQ(irq)  (MAXTASK + (irq))
 #define L4_ISRW  2
-#define L4_ISUS  4
-#define L4_PGSIZ 4096L
+#define PGSIZE 4096L
 
 #include <types.h>
 

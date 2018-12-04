@@ -75,6 +75,13 @@ static ssize_t l4_cmap(cap_t capid, ulong moff, ulong vstart, size_t size)
 	regs.dx = size;
 	return l4_sysux(MKWORD(L4_CMAP, 0), MKWORD(0, capid), &regs, NULL);
 }
+
+static ssize_t l4_mkcap(cap_t capid, ulong va)
+{
+	L4_MSG regs;
+	regs.di = va;
+	return l4_sysux(MKWORD(L4_MKCAP, 0), MKWORD(0, capid), &regs, NULL);
+}
 #if 0 // unimpl. api {{{
 static int l4_call(int to, const __L4_MSG *arg, __L4_MSG *ret)
 {

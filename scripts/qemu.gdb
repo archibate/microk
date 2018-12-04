@@ -20,6 +20,7 @@ set disassemble-next-line on
 set disassembly-flavor intel
 
 set $vregs = ((IF_REGS*)0x400000)
+set $wregs = ((IF_REGS*)0x403000)
 set $vpt   = ((ulong*)0xffc00000)
 set $vpd   = ((ulong*)0xfffff000)
 
@@ -45,4 +46,13 @@ b panic
 b exp14
 b exp13
 b do_break_point
-bc panic
+#bc l4_lwritepga
+define o
+	bc l4_recvcap
+	bc __l4_sysux
+	bt
+end
+bc main.c:89
+#bc do_send
+#bc sys.c:630
+#bc lwripc.c:55

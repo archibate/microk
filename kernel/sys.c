@@ -1,8 +1,8 @@
 // vim: fdm=marker
-//#define TPR
 #define YOUCAP
 //#define YOUGLB
 //#define PMR
+//#define TPR
 #include <struct.h>
 #include <memory.h>
 #include <stddef.h>
@@ -446,6 +446,24 @@ ssize_t do_cmap(cap_t capid, off_t moff, ulong vstart, size_t size)
 	return size;
 }
 
+int do_mkcap(cap_t capid, ulong va)
+{
+	tprintf("do_mkcap(%d,%#p)\n", capid, va);
+
+	va &= -4096L;
+
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!vpd[va >> 22])
+		return -EFAULT;
+	ulong pte = vpt[va >> 12];
+	if ((pte & 5) != 5)
+		return -EFAULT;
+	cap->mem.pte = pte;
+	cap->mem.size = 4096;
+	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
+	return 0;
+}
+
 void __attribute__((noreturn)) do_idle(void);
 
 void schedule(void)
@@ -837,6 +855,7 @@ void syscall(uint ax, uint cx)
 	case L4_RECV : vregs->ax = do_recv (cl,     ch); break;
 	case L4_FORK : vregs->ax = do_fork (cl        ); break;
 	case L4_ACTV : vregs->ax = do_actv (cl        ); break;
+	case L4_MKCAP: vregs->ax = do_mkcap(ch, vregs->msg0dat.di); break;
 	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.dx); break;
 	case 0x17    : printf("%d:l4_puts: %s\n", tidof(vcurr), (const char*)cx);    break;
 	case 0x18    : printf("%d:l4_print: cx=%d=%#x(%c)\n", tidof(vcurr), cx, cx); break;

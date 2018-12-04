@@ -1,25 +1,24 @@
 #include <libl4/lwrite.h>
 #include <libl4/lwrsvr.h>
-#include <libl4/cappool.h>
 #include <libl4/ichipc.h>
 #include <libl4/l4ipc.h>
 #include <memory.h>
-#include <struct.h>
 
 ssize_t l4_lwrite(l4id_t to, const void *buf, size_t size)
 {
 	ulong addr = (ulong)buf;
+	off_t voff = addr & (PGSIZE-1);
+	ulong vstart = addr & -PGSIZE;
 
 	LWR_MSG msg;
 	msg.size = size;
-	msg.voff = addr & (PGSIZE-1);
+	msg.voff = voff;
 	int ret = l4_send(to, &msg);
 	if (ret < 0)
 		return ret;
 
-	ulong vstart = addr & -PGSIZE;
 	cap_t cap = l4_alloccap();
-	int ret = l4_mkcap(cap, vstart, 0);
+	int ret = l4_mkcap(cap, vstart, size + voff);
 	if (ret < 0) {
 		l4_freecap(cap);
 		return ret;
@@ -47,16 +46,21 @@ l4id_t l4_lwrsvr_accept(LWR_CLI *lwr)
 	}
 	lwr->mpos = lwr->voff;
 	lwr->cli = cli;
+	return lwr->cli;
+}
 
+ssize_t l4_lwrsvr_readfg(LWR_CLI *lwr)
+{
+	lwr->cli
 	lwr->cap = l4_alloccap();
 	l4_recv_ret_t recv = __l4_recv(lwr->cli, NULL);
 	if (!(recv.flags & L4_ISCAP)) {
 		l4_sendich_ex(lwr->cli, -EINVAL, 0);
 		return -EAGAIN;
 	}
-	return lwr->cli;
 }
 
+#if 0
 ssize_t l4_lwrsvr_romapfg(LWR_CLI *lwr, const void **pp)
 {
 	ulong base = l4mm_alloc_vapage();
@@ -69,6 +73,7 @@ ssize_t l4_lwrsvr_romapfg(LWR_CLI *lwr, const void **pp)
 	*pp = (const void*)(base + off);
 	return size;
 }
+#endif
 
 void l4_lwrsvr_release(LWR_CLI *lwr, ssize_t ret)
 {

@@ -2,7 +2,7 @@ bin
 bin/*
 */bin
 */bin/*
-isodir/lib
+isodir/*
 *.o
 *.d
 *.obj

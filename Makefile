@@ -32,7 +32,7 @@ $(FDIMG): $(BOOTSECT) $(APPS:%=app-inc-%) $(APPS:%=app-%)
 	mkdir -p $Bmnt
 	-$(SH) $Sumountloop.sh $Bmnt
 	$(SH) $Smountloop.sh $Bmnt $@
-	sudo cp -r isodir/kernel.bin isodir/bin isodir/root $Bmnt
+	sudo cp -r isodir/kernel.bin isodir/bin $Bmnt
 	$(SH) $Sumountloop.sh $Bmnt
 
 

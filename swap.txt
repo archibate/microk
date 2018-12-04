@@ -1,0 +1,5 @@
+#0  __l4_sysux (ax=1, cx=3839, snd=0x0, rcv=0x0) at ../isodir/inc/libl4/l4/api.h:26
+#1  0x10002aef in __l4_recv (fr=255, msg=0x0, capid=14 '\016') at ../isodir/inc/libl4/l4/api.h:52
+#2  0x10002cb0 in l4_recvcap (fr=255, capid=14 '\016') at ../isodir/inc/libl4/capipc.h:14
+#3  0x10002e0e in l4_lwrpga_accept (lwr=0xfeed7f30, fr=255) at bin/lwripc.c:55
+#4  0x10005000 in ?? ()

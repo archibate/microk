@@ -1,7 +1,6 @@
 #pragma once
 
 #include <libl4/l4/defs.h>
-#include <types.h>
 
 STRUCT(LWR_CLI)
 {
