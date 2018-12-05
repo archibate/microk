@@ -1,3 +1,4 @@
+staging system!!
 L4_REPLY, L4_IRQRCV, ... distinquish them please!!!!!!!
 https://github.com/archibate/seL4/blob/master/src/kernel/thread.c: cancelIPC.etc..多学学人家!
 lread, lwrite wanna better. ref seL4??QNX??

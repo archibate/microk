@@ -1,20 +1,18 @@
+#include "libunix.h"
 #include <libl4/ichipc.h>
 #include <libl4/rwipc.h>
 #include <pathsvr.h>
-#include <unistd.h>
 #include <string.h>
 #include <errno.h>
-
-#define PATHSVR 1
 
 static l4id_t getsvrof(const char *path)
 {
 	l4_write(PATHSVR, path, strlen(path));
-	l4id_t svr = l4_recvich(PATHSVR);
+	l4id_t svr = l4_recvich(PATHSVR, 2);
 	return svr;
 }
 
-static l4id_t svs[FILEMAX];
+l4id_t svs[FILEMAX];
 
 int allocfd(void)
 {
@@ -32,6 +30,14 @@ int open(const char *path, int oflags)
 	return openat(fd, path, oflags);
 }
 
+int opensvr(l4id_t svr, int oflags)
+{
+	int fd = allocfd();
+	if (fd == -1)
+		return -EMFILE;
+	return opensvrat(fd, svr, oflags);
+}
+
 int openat(int fd, const char *path, int oflags)
 {
 	if (fd < 0 || fd >= FILEMAX)
@@ -45,33 +51,23 @@ int openat(int fd, const char *path, int oflags)
 	return fd;
 }
 
+int opensvrat(int fd, l4id_t svr, int oflags)
+{
+	if (fd < 0 || fd >= FILEMAX)
+		return -ENFILE;
+	if (svs[fd])
+		close(fd);
+	svs[fd] = svr;
+	return fd;
+}
+
 int close(int fd)
 {
 	if (fd < 0 || fd >= FILEMAX)
 		return -ENFILE;
 	if (!svs[fd])
 		return -EBADFD;
-	l4_sendich(svs[fd], FILE_CLOSE);
+	l4_sendich(svs[fd], 1, FILE_CLOSE);
 	svs[fd] = 0;
 	return 0;
-}
-
-ssize_t read(int fd, char *buf, size_t size)
-{
-	if (fd < 0 || fd >= FILEMAX)
-		return -ENFILE;
-	if (!svs[fd])
-		return -EBADFD;
-	l4_sendich(svs[fd], FILE_READ);
-	return l4_read(svs[fd], buf, size);
-}
-
-ssize_t write(int fd, const char *buf, size_t size)
-{
-	if (fd < 0 || fd >= FILEMAX)
-		return -ENFILE;
-	if (!svs[fd])
-		return -EBADFD;
-	l4_sendich(svs[fd], FILE_WRITE);
-	return l4_write(svs[fd], buf, size);
 }

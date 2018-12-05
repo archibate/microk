@@ -4,8 +4,8 @@
 
 L4_MSG_STRUCT(LWR_MSG)
 {
-	ushort voff;
-	ushort size;
+	uint voff;
+	uint size;
 }
 END_L4_MSG_STRUCT;
 

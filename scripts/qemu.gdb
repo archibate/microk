@@ -52,7 +52,10 @@ define o
 	bc __l4_sysux
 	bt
 end
-bc main.c:89
+#bc main.c:89
 #bc do_send
 #bc sys.c:630
 #bc lwripc.c:55
+#bc main.c:96
+#bc l4_lwread_ex
+c

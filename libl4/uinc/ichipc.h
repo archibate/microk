@@ -3,25 +3,25 @@
 #include <libl4/l4/api.h>
 #include <libl4/ipcmsgs.h>
 
-static int l4_sendich_ex(l4id_t to, uint ich, int flags)
+static int l4_sendich_ex(l4id_t to, stage_t stg, uint ich, int flags)
 {
 	ICH_MSG icmsg;
 	icmsg.ich = ich;
-	return l4_send_ex(to, &icmsg, flags);
+	return l4_send_ex(to, stg, &icmsg, flags);
 }
 
-#define l4_sendich(to, ich) l4_sendich_ex(to, ich, L4_BLOCK)
+#define l4_sendich(to, stg, ich) l4_sendich_ex(to, stg, ich, L4_BLOCK)
 
-static uint l4_recvich_ex(l4id_t fr, l4id_t *pfr)
+static uint l4_recvich_ex(l4id_t fr, stage_t stg, l4id_t *pfr)
 {
 	ICH_MSG icmsg;
-	fr = l4_recv(fr, &icmsg);
+	fr = l4_recv(fr, stg, &icmsg);
 	if (pfr)
 		*pfr = fr;
 	return icmsg.ich;
 }
 
-#define l4_recvich(to) l4_recvich_ex(to, NULL)
+#define l4_recvich(fr, stg) l4_recvich_ex(fr, stg, NULL)
 
 #if 0
 ssize_t l4_sendtx(l4id_t to, const void *buf, size_t size);

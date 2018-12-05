@@ -1,4 +1,5 @@
 #include <libl4/rwipc.h>
+#include <libl4/lwripc.h>
 #include <libl4/ichipc.h>
 #include <pathsvr.h>
 #include <stddef.h>
@@ -22,7 +23,7 @@ void path_server(void)
 		}
 		path[size] = 0;
 		int ret = open_path(cli, path);
-		l4_sendich_ex(cli, ret, 0);
+		l4_sendich_ex(cli, 2, ret, L4_REPLY);
 	}
 }
 
@@ -68,10 +69,13 @@ void __attribute__((noreturn)) subserver(l4id_t cli, const char *contents)
 {
 	int op;
 again:
-	op = l4_recvich(cli);
+	op = l4_recvich(cli, 1);
 	switch (op) {
-	case FILE_READ: l4_write(cli, contents, strlen(contents)); break;
-	default       : l4_sendich_ex(cli, -ENOSYS, 0); break;
+	case FILE_READ  :  l4_write(cli, contents, strlen(contents)); break;
+	//case FILE_LREAD : l4_lwrite(cli, contents, strlen(contents)); break;
+	case FILE_WRITE : l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
+	//case FILE_LWRITE: l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
+	default         : l4_sendich_ex(cli, 2, -ENOSYS, L4_REPLY);   break;
 	};
 	goto again;
 }

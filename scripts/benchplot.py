@@ -8,7 +8,7 @@ plt.title("performence of L4 syscalls")
 plt.xlabel("starting time")
 plt.ylabel("costed time")
 #plt.subplot(121)
-plt.ylim(bottom=0, top=60)
+plt.ylim(bottom=0, top=120)
 #plt.subplot(122)
 #plt.ylim(bottom=0, top=1000)
 

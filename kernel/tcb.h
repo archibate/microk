@@ -11,7 +11,8 @@ STRUCT(TCB)
 #define ONREPLY 3
 #define ONRECV  4
 #define BLOCKED 5
-	uint state : 8;
+	uint state : 4;
+	stage_t expstage : 4;
 	l4id_t expecting : 16;
 	ulong wtmpte;
 };

@@ -35,26 +35,26 @@ static int l4_sysux(int ax, int cx, const __L4_MSG *snd, __L4_MSG *rcv)
 	return __l4_sysux(ax, cx, snd, rcv).ret;
 }
 
-#define l4_puts(s)  l4_sysux(0x17, (int)(s), NULL, NULL)
-#define l4_print(x) l4_sysux(0x18, (x), NULL, NULL)
-#define l4_halt()   l4_sysux(0x19, 0, NULL, NULL)
+#define l4_puts(s)  l4_sysux(L4_PUTS, (int)(s), NULL, NULL)
+#define l4_print(x) l4_sysux(L4_PRINT, (x), NULL, NULL)
+#define l4_halt()   l4_sysux(L4_HALT, 0, NULL, NULL)
 #define MKWORD(l, h)  (((l)&0xff)|(((h)&0xff)<<8))
 
-#define l4_send(to, msg) l4_send_ex(to, msg, L4_BLOCK)
-#define l4_send_ex(to, msg, flags) __l4_send(to, msg, flags, 0)
-static int __l4_send(l4id_t to, const __L4_MSG *msg, uint flags, cap_t capid)
+#define l4_send(to, stg, msg) l4_send_ex(to, stg, msg, L4_BLOCK)
+#define l4_send_ex(to, stg, msg, flags) __l4_send(to, stg, msg, flags, 0)
+static int __l4_send(l4id_t to, stage_t stg, const __L4_MSG *msg, uint flags, cap_t capid)
 {
-	return l4_sysux(MKWORD(L4_SEND, flags), MKWORD(to, capid), msg, NULL);
+	return l4_sysux(MKWORD(L4_SEND | L4_STAGE(stg), flags), MKWORD(to, capid), msg, NULL);
 }
 
-static l4_recv_ret_t __l4_recv(l4id_t fr, __L4_MSG *msg, cap_t capid)
+static l4_recv_ret_t __l4_recv(l4id_t fr, stage_t stg, __L4_MSG *msg, cap_t capid)
 {
-	return __l4_sysux(MKWORD(L4_RECV, 0), MKWORD(fr, capid), NULL, msg);
+	return __l4_sysux(MKWORD(L4_RECV | L4_STAGE(stg), 0), MKWORD(fr, capid), NULL, msg);
 }
 
-static inline l4id_t l4_recv(l4id_t fr, __L4_MSG *msg)
+static inline l4id_t l4_recv(l4id_t fr, stage_t stg, __L4_MSG *msg)
 {
-	return __l4_recv(fr, msg, 0).ret;
+	return __l4_recv(fr, stg, msg, 0).ret;
 }
 
 static l4id_t l4_fork(cap_t tocap)
@@ -72,7 +72,7 @@ static ssize_t l4_cmap(cap_t capid, ulong moff, ulong vstart, size_t size)
 	L4_MSG regs;
 	regs.bx = moff;
 	regs.di = vstart;
-	regs.dx = size;
+	regs.si = size;
 	return l4_sysux(MKWORD(L4_CMAP, 0), MKWORD(0, capid), &regs, NULL);
 }
 

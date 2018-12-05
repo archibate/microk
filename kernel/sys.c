@@ -1,8 +1,10 @@
 // vim: fdm=marker
 #define YOUCAP
+#define YOUSTG
 //#define YOUGLB
+//#define YOUSLT
 //#define PMR
-//#define TPR
+#define TPR
 #include <struct.h>
 #include <memory.h>
 #include <stddef.h>
@@ -340,7 +342,7 @@ void on_timer(void)
 		if (&T[id] != curr)
 			settask(&T[id]);
 	}
-	testp(t);
+	estp(t);
 }*/// }}}
 // {{{
 /*int do_recv(cap_t frid)
@@ -529,9 +531,16 @@ int is_expecting(l4id_t expecting, l4id_t id)
 	return 0;
 }
 
-MSG *alloc_msgslot(MSG *msgs)
+MSG *alloc_msgslot(MSG *msgs, l4id_t tid)
 {
-	for (int i = 0; i < MAXMSG; i++) {
+	int i;
+#ifdef YOUSLT
+	i = tid % MAXMSG;
+	if (!msgs[i].is_valid)
+		return &msgs[i];
+#endif
+	for (i = 0; i < MAXMSG; i++)
+	{
 		if (!msgs[i].is_valid)
 			return &msgs[i];
 	}
@@ -539,46 +548,71 @@ MSG *alloc_msgslot(MSG *msgs)
 	return 0;
 }
 
-int do_recv(l4id_t exptid, cap_t capid)
+MSG *msgslots_find(MSG *msgs, l4id_t exptid)
+{
+	int i;
+#ifdef YOUSLT
+	if (exptid != L4_ANY)
+	{
+		i = exptid % MAXMSG;
+		if (msgs[i].is_valid && is_expecting(exptid, msgs[i].tid))
+			return &msgs[i];
+	}
+#endif
+
+	for (i = 0; i < MAXMSG; i++)
+	{
+		if (msgs[i].is_valid && is_expecting(exptid, msgs[i].tid))
+			return &msgs[i];
+	}
+	return 0;
+}
+
+int do_recv(l4id_t exptid, stage_t stg, cap_t capid)
 {
 	tprintf("%d:do_recv(%d)\n", tidof(vcurr), exptid);
 	ticktsc();
 
-	for (int i = 0; i < MAXMSG; i++) {
-		MSG *msg = &vregs->msgs[i];
-		if (!msg->is_valid)
-			continue;
-
-		l4id_t tid = msg->tid;
-		if (is_expecting(exptid, tid))
-		{
-			tprintf("%d/%d:direct recv %d/%d\n", tidof(vcurr), exptid, msg - vregs->msgs, tid);
-			if (msg->flags & L4_BLOCK) {
-				assert(T[tid].state == ONSEND);
-				T[tid].state = RUNNING;
-			}
-#ifdef YOUCAP
-			if (msg->flags & L4_ISCAP) {
-				if (capid != 0)
-					memcpy(&vregs->C[capid], &msg->dat.cap, sizeof(CAP));
-			} else
-#endif
-				memcpy(&vregs->msg0dat, &msg->dat, sizeof(msg->dat));
-			msg->is_valid = 0;
-#ifdef YOUCAP
-			vregs->cx = msg->flags;
-#endif
-			testp(w1);
-			return tid;
+	MSG *msg = msgslots_find(vregs->msgs, exptid);
+	if (msg)
+	{
+#ifdef YOUSTG
+		if (msg->stage != stg) {
+			printf("\033[1;31mWARNING: recv: bad stage: %d!=%d\033[0m\n", msg->stage, stg);
+			return -(ESTAGE + msg->stage);
 		}
+#endif
+
+		tprintf("%d/%d:direct recv %d/%d\n", tidof(vcurr), exptid, msg - vregs->msgs, msg->tid);
+		if (msg->flags & L4_BLOCK) {
+			assert(T[msg->tid].state == ONSEND);
+			T[msg->tid].state = RUNNING;
+		}
+#ifdef YOUCAP
+		if (msg->flags & L4_ISCAP) {
+			if (capid != 0)
+				memcpy(&vregs->C[capid], &msg->dat.cap, sizeof(CAP));
+		} else
+#endif
+			memcpy(&vregs->msg0dat, &msg->dat, sizeof(msg->dat));
+		vregs->cx = msg->flags;
+		msg->is_valid = 0;
+		testp(w1);
+		return msg->tid;
 	}
-	tprintf("block on recv\n");
-	vcurr->state = ONRECV;
-	vcurr->expecting = exptid;
-	vregs->waitcap = capid;
-	schedule();
-	testp(w2);
-	return 0;
+	else
+	{
+		tprintf("block on recv\n");
+		vcurr->state = ONRECV;
+		vcurr->expecting = exptid;
+#ifdef YOUSTG
+		vcurr->expstage = stg;
+#endif
+		vregs->waitcap = capid;
+		schedule();
+		testp(w2);
+		return 0;
+	}
 }
 /*int do_accpt(l4id_t frid, cap_t capid) // {{{
 {
@@ -602,7 +636,7 @@ int do_share(l4id_t toid, cap_t capid, int grant, int block)
 
 	return do_send(toid, block);
 }*/ // }}}
-int do_send(l4id_t toid, uint flags, cap_t capid)
+int do_send(l4id_t toid, stage_t stg, uint flags, cap_t capid)
 {
 	tprintf("%d:do_send(toid=%d,flags=%d)(dx=%d)\n", tidof(vcurr), toid, flags, vregs->msg0dat.dx);
 	ticktsc();
@@ -619,18 +653,24 @@ int do_send(l4id_t toid, uint flags, cap_t capid)
 	l4id_t mytid = tidof(vcurr);
 	if (to->state == ONRECV && is_expecting(to->expecting, mytid))
 	{
+#ifdef YOUSTG
+		if (to->expstage != stg) {
+			printf("\033[1;31mWARNING: send: bad stage: %d!=%d\033[0m\n", to->expstage, stg);
+			return -(ESTAGE + to->expstage);
+		}
+#endif
 		tprintf("direct send\n");
 		assert(to->wtmpte);
 		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
 		to->state = RUNNING;
-		wregs->cx = flags;
 #ifdef YOUCAP
-		if (flags & L4_ISCAP)
+		if (flags & L4_ISCAP) {
 			memcpy(&wregs->C[wregs->waitcap], &vregs->C[capid], sizeof(CAP));
-		else
+		} else
 #endif
 			memcpy(&wregs->msg0dat, &vregs->msg0dat, sizeof(MSGDAT));
+		wregs->cx = flags;
 		settask(to);
 		testp(s1);
 		return mytid;
@@ -645,15 +685,18 @@ int do_send(l4id_t toid, uint flags, cap_t capid)
 		assert(to->wtmpte);
 		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
-		MSG *msg = alloc_msgslot(wregs->msgs);
+		MSG *msg = alloc_msgslot(wregs->msgs, tidof(vcurr));
 #ifdef YOUCAP // good!
-		if (flags & L4_ISCAP)
+		if (flags & L4_ISCAP) {
 			memcpy(&msg->dat.cap, &vregs->C[capid], sizeof(CAP));
-		else
+		} else
 #endif
 			memcpy(&msg->dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
-		msg->is_valid = 1;
 		msg->flags = flags;
+#ifdef YOUSTG
+		msg->stage = stg;
+#endif
+		msg->is_valid = 1;
 		msg->tid = mytid;
 		if (to->state == RUNNING)
 			settask(to);
@@ -675,11 +718,12 @@ int do_softirq(int irq, uint dx)
 	if (!to)
 		return -ENOCAP;
 
-	if (to->state == ONRECV && is_expecting(to->expecting, L4_IRQ(irq)))
+	l4id_t irqtid = L4_IRQ(irq);
+	if (to->state == ONRECV && is_expecting(to->expecting, irqtid))
 	{
 		to->state = RUNNING;
 		settask(to); // seem this slow downs a lot, how about to put irq servers in the ldt segment?
-		vregs->ax = L4_IRQ(irq);
+		vregs->ax = irqtid;
 		vregs->msg0dat.dx = dx;
 		testp(i1);
 		return 0;
@@ -689,11 +733,12 @@ int do_softirq(int irq, uint dx)
 		assert(to->wtmpte);
 		vpt[0x403] = to->wtmpte;
 		invlpg((ulong)wregs);
-		MSG *msg = alloc_msgslot(wregs->msgs);
+		MSG *msg = alloc_msgslot(wregs->msgs, irqtid);
 		msg->dat.dx = dx;
-		msg->is_valid = 1;
 		msg->flags = 0;
-		msg->tid = L4_IRQ(irq);
+		msg->is_valid = 1;
+		msg->stage = 0;
+		msg->tid = irqtid;
 		if (to->state == RUNNING)
 			settask(to);
 		else
@@ -725,7 +770,6 @@ void on_hwirq(int irq)
 	if (ret < 0)
 		printf("oops(%d:%m)!\n", ret, ret);
 }
-
 /*int do_call(cap_t toid) // {{{
 {
 	tprintf("do_call(toid=%d)\n", toid);
@@ -750,7 +794,7 @@ void on_hwirq(int irq)
 		if (to->state == RUNNING)
 			settask(to);
 	}
-	testp(c);
+	estp(c);
 	return 0;
 }
 
@@ -770,7 +814,7 @@ int do_recv(void)
 		vcurr->state = ONRECV;
 		schedule();
 	}
-	testp(w);
+	estp(w);
 	return 0;
 }
 
@@ -790,10 +834,9 @@ int do_retn(cap_t toid)
 	allocregp();
 	from->state = RUNNING;
 	//settask(from);
-	testp(r);
+	estp(r);
 	return 0;
 }*/ // }}}
-
 int do_actv(cap_t toid)
 {
 	tprintf("do_actv(%d)\n", toid);
@@ -849,18 +892,19 @@ void syscall(uint ax, uint cx)
 	uchar cl = cx & 0xff, ch = (cx >> 8) & 0xff;
 	uchar al = ax & 0xff, ah = (ax >> 8) & 0xff;
 	assert(vcurr->state == RUNNING);
-	switch (al)
+	uchar sys = L4_AXSYS(al), stg = L4_AXSTG(al);
+	switch (sys)
 	{
-	case L4_SEND : vregs->ax = do_send (cl, ah, ch); break;
-	case L4_RECV : vregs->ax = do_recv (cl,     ch); break;
-	case L4_FORK : vregs->ax = do_fork (cl        ); break;
-	case L4_ACTV : vregs->ax = do_actv (cl        ); break;
+	case L4_SEND : vregs->ax = do_send (cl, stg, ah, ch); break;
+	case L4_RECV : vregs->ax = do_recv (cl, stg,     ch); break;
+	case L4_FORK : vregs->ax = do_fork (cl             ); break;
+	case L4_ACTV : vregs->ax = do_actv (cl             ); break;
 	case L4_MKCAP: vregs->ax = do_mkcap(ch, vregs->msg0dat.di); break;
-	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.dx); break;
-	case 0x17    : printf("%d:l4_puts: %s\n", tidof(vcurr), (const char*)cx);    break;
-	case 0x18    : printf("%d:l4_print: cx=%d=%#x(%c)\n", tidof(vcurr), cx, cx); break;
-	case 0x19    : printf("halting...\n"); do_idle();            break;
-	default :      vregs->ax = -ENOSYS;                          break;
+	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.si); break;
+	case L4_PUTS : printf("%d:l4_puts: \033[1;32m%s\033[0m\n", tidof(vcurr), (const char*)cx);        break;
+	case L4_PRINT: printf("%d:l4_print: cx=\033[1;32m%d=%#x(%c)\033[0m\n", tidof(vcurr), cx, cx);     break;
+	case L4_HALT : printf("halting...\n"); do_idle();                                                 break;
+	default      : printf("\033[1;31mWARNING: invalid syscall number: %d\033[0m\n", ax); vregs->ax = -ENOSYS; break;
 	};
 }
 

@@ -138,6 +138,22 @@ const char *err_msgs[] = {
 	"Too many messages",
 	"Not a capability",
 	"Long read/write terminated",
+	"Bad IPC stage",
+	"Bad IPC stage 1",
+	"Bad IPC stage 2",
+	"Bad IPC stage 3",
+	"Bad IPC stage 4",
+	"Bad IPC stage 5",
+	"Bad IPC stage 6",
+	"Bad IPC stage 7",
+	"Bad IPC stage 8",
+	"Bad IPC stage 9",
+	"Bad IPC stage 10",
+	"Bad IPC stage 11",
+	"Bad IPC stage 12",
+	"Bad IPC stage 13",
+	"Bad IPC stage 14",
+	"Bad IPC stage 15",
 };
 
 const char *strerror(int err)
