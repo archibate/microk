@@ -1,1 +1,1 @@
-make $* || (echo "Press any key to continue..." && read -n 1)
+make -B clean $* || (echo "Press any key to continue..." && read -n 1)

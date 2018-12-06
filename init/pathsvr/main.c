@@ -1,45 +1,75 @@
 #include <libl4/rwipc.h>
 #include <libl4/lwripc.h>
 #include <libl4/ichipc.h>
-#include <pathsvr.h>
+#include <fs/defs.h>
+#include <fs/proto.h>
+#include <fs/psvproto.h>
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
 #include <pool.h>
 
-static void init_fidpool();
-l4id_t open_path(l4id_t cli, const char *path);
+static void init_fidpool(void);
+static void init_ftab(void);
+l4id_t open_path_for(l4id_t cli, const char *path, uint oflags);
 void path_server(void)
 {
+	init_ftab();
 	init_fidpool();
 
 	while (1) {
-		char path[MAXPATH+1];
-		l4id_t cli;
-		ssize_t size = l4_read_ex(L4_ANY, path, MAXPATH, &cli);
-		if (size < 0) {
-			l4_puts("WARNING: path_server: bad read!\n");
+		OPENER_ARGS oa;
+		if (0 > fspsv_recv_opener(&oa, L4_ANY)) {
+			l4_puts("WARNING: path_server: fspsv_recv_opener() returns negative!\n");
 			continue;
 		}
-		path[size] = 0;
-		int ret = open_path(cli, path);
-		l4_sendich_ex(cli, 2, ret, L4_REPLY);
+		l4id_t svr = open_path_for(oa.cli, oa.path, oa.oflags);
+		fspsv_reply_opener(&oa, svr);
 	}
 }
 
-struct {
-	const char *path;
-	const char *contents;
-} files[] = {
-	{"hello.txt", "Hello, World!\n"},//TODO!!ramfs!!
-};
 
-static l4id_t file_instance(l4id_t cli, const char *contents);
-l4id_t open_path(l4id_t cli, const char *path)
+struct file {
+	const char *path;
+	const void *data;
+	size_t size;
+} files[12];
+
+static int fi = 0;
+
+static void ftab_addfileof_stri(const char *path, const char *datstr)
+{
+	files[fi].path = path;
+	files[fi].data = datstr;
+	files[fi].size = strlen(datstr);
+	fi++;
+}
+
+static void ftab_addfileof_prog(const char *path, const void *beg, const void *end)
+{
+	files[fi].path = path;
+	files[fi].data = beg;
+	files[fi].size = end - beg;
+	fi++;
+}
+
+#define ftab_addfileof_PROG(path, name) \
+	extern char _prog_beg_##name[], _prog_end_##name[]; \
+	ftab_addfileof_prog(path, _prog_beg_##name, _prog_end_##name);
+
+void init_ftab(void)
+{
+	ftab_addfileof_stri("hello.txt", "Hello, World!\n");
+	ftab_addfileof_PROG("hello.bin", hello);
+}
+
+
+static l4id_t file_instance(l4id_t cli, struct file *file);
+l4id_t open_path_for(l4id_t cli, const char *path, uint oflags)
 {
 	for (int i = 0; i < ARRAY_SIZEOF(files); i++) {
 		if (!strcmp(files[i].path, path)) {
-			return file_instance(cli, files[i].contents);
+			return file_instance(cli, &files[i]);
 		}
 	}
 	return -ENOENT;
@@ -54,28 +84,26 @@ void init_fidpool(void)
 		POOL_FREE(&fidpool, 16 + i);
 }
 
-static void __attribute__((noreturn)) subserver(l4id_t cli, const char *contents);
-l4id_t file_instance(l4id_t cli, const char *contents)
+static void __attribute__((noreturn)) fsvr_of_contents(l4id_t cli, struct file *file);
+l4id_t file_instance(l4id_t cli, struct file *file)
 {
 	cap_t capt = POOL_ALLOC(&fidpool);
 	l4id_t svr = l4_fork(capt);
 	if (!svr)
-		subserver(cli, contents);
+		fsvr_of_contents(cli, file);
 	l4_actv(capt);
 	return svr;
 }
 
-void __attribute__((noreturn)) subserver(l4id_t cli, const char *contents)
+void __attribute__((noreturn)) fsvr_of_contents(l4id_t cli, struct file *file)
 {
-	int op;
-again:
-	op = l4_recvich(cli, 1);
-	switch (op) {
-	case FILE_READ  :  l4_write(cli, contents, strlen(contents)); break;
-	//case FILE_LREAD : l4_lwrite(cli, contents, strlen(contents)); break;
-	case FILE_WRITE : l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
-	//case FILE_LWRITE: l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
-	default         : l4_sendich_ex(cli, 2, -ENOSYS, L4_REPLY);   break;
-	};
-	goto again;
+	while (1) {
+		switch (fs_recvcmd(cli)) {
+			case FS_READ  :  l4_write(cli, file->data, file->size);     break;
+			case FS_LREAD : l4_lwrite(cli, file->data, file->size);     break;
+			case FS_WRITE : l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
+			case FS_LWRITE: l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
+			default       : l4_sendich_ex(cli, 2, -ENOSYS, L4_REPLY);   break;
+		};
+	}
 }

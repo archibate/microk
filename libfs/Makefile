@@ -1,6 +1,7 @@
 D=../
-NAME=init
-KTE=bin
+NAME=libfs
+INCNAME=.
+KTE=a
 
 default: all
 
@@ -14,8 +15,8 @@ all: $(IMAGE)
 
 PHONY+=install
 install: $(IMAGE)
-	cp $< $Nsys
+	cp $< $Nlib/
 
 
-INCLUDE+=kbdsvr comsvr xterm pathsvr
+include $Minsinc.mak
 include $Mend.mak

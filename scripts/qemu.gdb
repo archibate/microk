@@ -58,4 +58,4 @@ end
 #bc lwripc.c:55
 #bc main.c:96
 #bc l4_lwread_ex
-c
+bc main.c:134

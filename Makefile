@@ -61,6 +61,7 @@ debug: $(FDIMG)
 	$(SH) $Sqemu.sh -d
 
 
+CLEAN+=$Nlib/* $Nbin/* $Ninc/*
 
 include $Mrules.mak
 include $Mendup.mak

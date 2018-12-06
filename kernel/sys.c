@@ -4,7 +4,7 @@
 //#define YOUGLB
 //#define YOUSLT
 //#define PMR
-#define TPR
+//#define TPR
 #include <struct.h>
 #include <memory.h>
 #include <stddef.h>
@@ -943,6 +943,7 @@ void map_pages_in(ulong vbeg, ulong ptebeg, ulong size)
 }
 
 extern char _initrd[] __attribute__((aligned(4096))), _initrd_end[];
+extern char _vsysrd[] __attribute__((aligned(4096))), _vsysrd_end[];
 
 static CAP vram_cap = {
 	.mem.size = 800 * 600,
@@ -973,6 +974,8 @@ void init_sys(void)
 
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
 	new_pages_in(0x10000000 + _initrd_end - _initrd,  0x8000          );
+	map_pages_in(0xc0000000, (ulong)_vsysrd | 7, _vsysrd_end - _vsysrd);
+	new_pages_in(0xc0000000 + _vsysrd_end - _vsysrd,  0x8000          );
 	new_pages_in(0xfeed0000,                          0x8000          );
 
 	set_irq_enable(IRQ_KEYBOARD, 1);
