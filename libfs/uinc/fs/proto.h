@@ -14,3 +14,4 @@ ssize_t fs_write(l4id_t svr, const void *buf, size_t size);
 #define fs_sendcmd(svr, cmd) l4_sendich(svr, 1, cmd)
 #define fs_recvcmd(fr)       l4_recvich(fr,  1)
 #define fs_close(svr)        fs_sendcmd(svr, FS_CLOSE)
+#define fs_reply(svr, ret)   l4_sendich_ex(svr, 1, cmd, L4_REPLY)

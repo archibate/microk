@@ -8,8 +8,8 @@ STRUCT(TCB)
 	uint mid : 8; // TODO: remove me // use tcb->pgd instead?
 #define RUNNING 1
 #define ONSEND  2
-#define ONREPLY 3
-#define ONRECV  4
+#define ONRECV  3
+#define ONREPLY 4
 #define BLOCKED 5
 	uint state : 4;
 	stage_t expstage : 4;

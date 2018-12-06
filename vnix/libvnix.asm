@@ -1,13 +1,13 @@
 ; vim: ft=nasm ai
 
-	GLOBAL _vsys_calls_entry
+	GLOBAL _vsyscall_entries
 	GLOBAL open, read, write, close, exec
 
 vsystab equ 0xc0000000
 
 [SECTION .text]
 [BITS 32]
-_vsys_calls:
+_vsyscall_entries:
 open:
 	jmp [vsystab + 4*0]
 read:

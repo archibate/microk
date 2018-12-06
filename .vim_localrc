@@ -1,5 +1,5 @@
 au BufNewFile,BufRead .vim_localrc set ft=vim
-au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t l4id_t l4_recv_ret_t soff_t stage_t ino_t
+au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t l4id_t l4_recv_ret_t soff_t stage_t ino_t file_server_t
 au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT CAP IF_REGS L4_MSG LWR_MSG LWR_CLI TX_MSG ICH_MSG SEGDESC GATEDESC DIRENT OPENER_ARGS
 au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_FRGSIZ L4_SEND L4_RECV L4_ACTV L4_FORK L4_CMAP L4_MKCAP L4_ISCAP L4_BLOCK L4_REPLY L4_STGSHIFT L4_ISRW PGSIZE
 au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ FILEMAX PATHMAX NAMEMAX EBADFD EMMSG ELRWTERM ESTAGE ENOCAP ENOTCAP EWBLOCK ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING O_RDONLY O_WRONLY O_RDWR O_EXEC O_CREAT

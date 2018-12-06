@@ -48,7 +48,7 @@ again:
 	msg.size = -1;
 	////l4_puts("l4_lwrite sending EOLW");
 
-	l4_send(to, 2, &msg);
+	l4_send_ex(to, 2, &msg, L4_REPLY);
 	return ret;
 }
 

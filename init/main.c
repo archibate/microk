@@ -8,12 +8,8 @@
 #include <memory.h>
 #include <string.h>
 #include <unistd.h>
+#include <l4ids.h>
 
-#define CLIENT   0
-#define PATHSVR  1
-#define KBDSVR   2
-#define COMSVR   3
-#define XTMSVR   4
 #define KMEM_CAP 8
 #define VRAM_CAP 9
 
@@ -65,29 +61,29 @@ void my_client(void)
 	ssize_t size = read(i, buf, sizeof(buf));
 	//l4_puts(buf);
 	close(i);
-	l4_write(XTMSVR, buf, size);
-	l4_write(COMSVR, buf, size);
+	l4_write(L4ID_XTMSVR, buf, size);
+	l4_write(L4ID_COMSVR, buf, size);
 
 	while (1) {
-		getichmsg(KBDSVR, &msg);
-		l4_write(XTMSVR, &msg.ic_raw, strlen(msg.ic_raw));
-		l4_write(COMSVR, &msg.ic_raw, strlen(msg.ic_raw));
+		getichmsg(L4ID_KBDSVR, &msg);
+		l4_write(L4ID_XTMSVR, &msg.ic_raw, strlen(msg.ic_raw));
+		l4_write(L4ID_COMSVR, &msg.ic_raw, strlen(msg.ic_raw));
 	}
 }
 
 void main(void)
 {
-	if (!l4_fork(PATHSVR)) {
-		if (!l4_fork(KBDSVR)) {
-			if (!l4_fork(COMSVR)) {
-				if (!l4_fork(XTMSVR)) {
+	if (!l4_fork(L4ID_PATHSVR)) {
+		if (!l4_fork(L4ID_KBDSVR)) {
+			if (!l4_fork(L4ID_COMSVR)) {
+				if (!l4_fork(L4ID_XTMSVR)) {
 					l4_cmap(VRAM_CAP, 0x0,    0x80000000,     -1L);
 					l4_cmap(KMEM_CAP, 0x7000, 0x9ffff000,  0x1000);
-#if 1
+#if 0
 					l4_mkcap(123, 0x80000000);
-					l4_sendcap(CLIENT, 15, 123); 
+					l4_sendcap(0, 15, 123); 
 					l4_mkcap(123, 0x80001000);
-					l4_sendcap(CLIENT, 14, 123); 
+					l4_sendcap(0, 14, 123); 
 #if 0
 					LWR_CLI lwr;
 					l4_lwrpga_accept(&lwr, L4_ANY);
@@ -104,23 +100,23 @@ void main(void)
 					extern int xterm_server(void *vram, void *vinfo_p);
 					xterm_server((void*)0x80000000, (void*)0x9ffffb00);
 				} else {
-					l4_actv(XTMSVR);//
+					l4_actv(L4ID_XTMSVR);//
 					extern void serial_server(void);
 					serial_server();
 				}
 			} else {
-				l4_actv(COMSVR);//
+				l4_actv(L4ID_COMSVR);//
 				extern void keyboard_server(void);
 				keyboard_server();
 			}
 		} else {
-			l4_actv(KBDSVR);//
+			l4_actv(L4ID_KBDSVR);//
 			extern void path_server(void);
 			path_server();
 		}
 	} else {
-		l4_actv(PATHSVR);//
-#if 1
+		l4_actv(L4ID_PATHSVR);//
+#if 0
 		l4_recvcap(L4_ANY, 15, 125);
 		l4_cmap(125, 0x0, 0x60000000, -1L);
 		memset((void*)0x60000000, 0x07, 4096);
@@ -131,6 +127,7 @@ void main(void)
 		l4_lwrite(XTMSVR, buf, sizeof(buf));
 		//char s[] =  "Hello, LWRITE!\n";
 #endif
+		exec("hello.bin");
 		my_client();
 	}
 }

@@ -1,5 +1,6 @@
-#include <libl4/l4/api.h>
+#include <fs/proto.h>
 #include <libl4/rwipc.h>
+#include <libl4/lwripc.h>
 #include <asm/ioport.h>
 
 
@@ -16,7 +17,15 @@ void my_putc(char c)
 	serial_putc(c);
 }
 
-void serial_server(void)
+static int serial_wrmain(const char *buf, size_t size)
+{
+	for (int i = 0; i < size; i++)
+		my_putc(buf[i]);
+	return size;
+}
+
+#if 0
+void serial_server(l4id_t cli)
 {
 	char buf[256];
 	while (1)
@@ -26,12 +35,20 @@ void serial_server(void)
 #ifdef PMR
 		continue;
 #endif
-		for (int i = 0; i < size; i++)
-			my_putc(buf[i]);
 		//l4_puts("!!!!!!!!!!!!!!!");
 		//l4_send_ex(cli, NULL, 0);
 	}
+	int ret;
+	/*switch (fs_recvcmd(cli)) {
+		case FS_WRITE : ret = serial_wrmain(buf,   l4_read(cli, buf, sizeof(buf))); break;
+		case FS_LWRITE: ret = serial_wrmain(buf, l4_lwread(cli, buf, sizeof(buf))); break;
+		case FS_READ  : ret = -EPERM;  break;
+		case FS_LREAD : ret = -EPERM;  break;
+		default       : ret = -ENOSYS; break;
+	};
+	fs_reply(ret);*/
 }
+#endif
 
 
 static

@@ -13,6 +13,7 @@ set architecture i386
 # For kernel debugging
 # Add KERNEL file for debugging information
 add-symbol-file kernel/bin/kernel.elf 0x100000
+add-symbol-file vnix/bin/vnix.elf 0xc0000000
 add-symbol-file init/bin/init.elf 0x10000000
 
 # For both ;)
@@ -58,4 +59,7 @@ end
 #bc lwripc.c:55
 #bc main.c:96
 #bc l4_lwread_ex
-bc main.c:134
+#bc main.c:134
+#bc exec
+#bc _userbeg
+bc exec.c:15
