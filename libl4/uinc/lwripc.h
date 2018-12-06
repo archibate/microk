@@ -4,6 +4,7 @@
 
 L4_MSG_STRUCT(LWR_MSG)
 {
+	uint fsop;
 	uint voff;
 	uint size;
 }

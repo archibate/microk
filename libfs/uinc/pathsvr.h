@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fs/defs.h>
-#include <libl4/l4/defs.h>
+#include <fs/fsdefs.h>
+#include <l4/l4defs.h>
 
 STRUCT(OPENER_ARGS)
 {

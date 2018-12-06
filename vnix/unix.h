@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libl4/l4/defs.h>
+#include <l4/l4defs.h>
 #include "unistd.h"
 
 #define PATHSVR 1

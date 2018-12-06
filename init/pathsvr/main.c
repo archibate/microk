@@ -1,13 +1,14 @@
-#include <libl4/rwipc.h>
-#include <libl4/lwripc.h>
-#include <libl4/ichipc.h>
-#include <fs/defs.h>
-#include <fs/proto.h>
-#include <fs/psvproto.h>
+#include <l4/l4api.h>
+#include <fs/fsdefs.h>
+#include <fs/server.h>
+#include <fs/pathsvr.h>
 #include <stddef.h>
 #include <string.h>
+#include <memory.h>
 #include <errno.h>
 #include <pool.h>
+#include <debug.h>
+#include <l4ids.h>
 
 static void init_fidpool(void);
 static void init_ftab(void);
@@ -20,7 +21,7 @@ void path_server(void)
 	while (1) {
 		OPENER_ARGS oa;
 		if (0 > fspsv_recv_opener(&oa, L4_ANY)) {
-			l4_puts("WARNING: path_server: fspsv_recv_opener() returns negative!\n");
+			dbg_printf("WARNING: path_server: fspsv_recv_opener() returns negative!\n");
 			continue;
 		}
 		l4id_t svr = open_path_for(oa.cli, oa.path, oa.oflags);
@@ -28,27 +29,15 @@ void path_server(void)
 	}
 }
 
-struct file;
-typedef void file_server_t(struct file *file, l4id_t cli);
-struct file {
+//struct entry;
+//typedef l4id_t file_server_t(struct file *file, l4id_t cli);
+struct entry {
 	const char *path;
-	const void *data;
-	size_t size;
-	file_server_t *server;
-} files[12];
+	//file_server_t *server;
+	struct file file;
+} entries[12];
 
-void fserver_of_contents(struct file *file, l4id_t cli)
-{
-	switch (fs_recvcmd(cli)) {
-		case FS_READ  :  l4_write(cli, file->data, file->size);     break;
-		case FS_LREAD : l4_lwrite(cli, file->data, file->size);     break;
-		case FS_WRITE : l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
-		case FS_LWRITE: l4_sendich_ex(cli, 2, -EPERM,  L4_REPLY);   break;
-		default       : l4_sendich_ex(cli, 2, -ENOSYS, L4_REPLY);   break;
-	};
-}
-
-#if 0
+#if 0 // {{{
 int stdout_wrmain(const char *buf, ssize_t size)
 {
 	if (size < 0)
@@ -80,34 +69,46 @@ void fsvfop_on_write(struct file *file, l4id_t cli)
 {
 	ret = file->fops->readfg(file, buf, size);
 }
-#endif
-
+#endif // }}}
 static int fi = 0;
 
-static void ftab_addfileof_devi(const char *path, file_server_t *server)
+ssize_t contentive_read(struct file *file, void *buf, size_t size)
 {
-	files[fi].path = path;
-	files[fi].data = 0;
-	files[fi].size = 0;
-	files[fi].server = server;
+	if (size > file->size)
+		size = file->size;
+	memcpy(buf, file->data, size);
+	return size;
+}
+
+struct file_operations contentive_fops = {
+	.read = contentive_read,
+};
+
+static void ftab_addfileof_devi(const char *path, l4id_t svr)
+{
+	entries[fi].path = path;
+	entries[fi].file.data = 0;
+	entries[fi].file.size = 0;
+	entries[fi].f_svr = svr;
 	fi++;
 }
 
+static l4id_t file_instance(l4id_t cli, struct file *file);
 static void ftab_addfileof_stri(const char *path, const char *datstr)
 {
-	files[fi].path = path;
-	files[fi].data = datstr;
-	files[fi].size = strlen(datstr);
-	files[fi].server = fserver_of_contents;
+	entries[fi].path = path;
+	entries[fi].file.data = datstr;
+	entries[fi].file.size = strlen(datstr);
+	entries[fi].file.f_svr = file_instance(L4_ANY, &entries[fi].file);
 	fi++;
 }
 
 static void ftab_addfileof_prog(const char *path, const void *beg, const void *end)
 {
-	files[fi].path = path;
-	files[fi].data = beg;
-	files[fi].size = end - beg;
-	files[fi].server = fserver_of_contents;
+	entries[fi].path = path;
+	entries[fi].file.data = beg;
+	entries[fi].file.size = end - beg;
+	entries[fi].file.f_svr = file_instance(L4_ANY, &entries[fi].file);
 	fi++;
 }
 
@@ -117,24 +118,23 @@ static void ftab_addfileof_prog(const char *path, const void *beg, const void *e
 
 void init_ftab(void)
 {
-	ftab_addfileof_devi("/dev/stdout", fserver_of_stdout);
+	ftab_addfileof_devi("/dev/stdout", L4ID_XTMSVR);
 	ftab_addfileof_stri("hello.txt", "Hello, World!\n");
 	ftab_addfileof_PROG("hello.bin", hello);
 }
 
 
-static l4id_t file_instance(l4id_t cli, struct file *file);
 l4id_t open_path_for(l4id_t cli, const char *path, uint oflags)
 {
-	for (int i = 0; i < ARRAY_SIZEOF(files); i++) {
-		if (files[i].path && !strcmp(files[i].path, path)) {
-			return file_instance(cli, &files[i]);
+	for (int i = 0; i < ARRAY_SIZEOF(entries); i++) {
+		if (entries[i].path && !strcmp(entries[i].path, path)) {
+			return file_instance(cli, &entries[i].file);
 		}
 	}
 	return -ENOENT;
 }
 
-POOL_TYPE(cap_t, ARRAY_SIZEOF(files) * 2) fidpool;
+POOL_TYPE(cap_t, ARRAY_SIZEOF(entries) * 2) fidpool;
 
 void init_fidpool(void)
 {
@@ -148,7 +148,7 @@ l4id_t file_instance(l4id_t cli, struct file *file)
 	cap_t capt = POOL_ALLOC(&fidpool);
 	l4id_t svr = l4_fork(capt);
 	if (!svr) while (1)
-		file->server(file, cli);
+		fs_serve(file, cli);
 	l4_actv(capt);
 	return svr;
 }

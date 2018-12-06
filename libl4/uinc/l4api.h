@@ -1,7 +1,7 @@
 // vim: fdm=marker
 #pragma once
 
-#include <libl4/l4/defs.h>
+#include <l4/l4defs.h>
 #include <types.h>
 #include <stddef.h>
 #include <struct.h>
@@ -35,10 +35,9 @@ static int l4_sysux(int ax, int cx, const __L4_MSG *snd, __L4_MSG *rcv)
 	return __l4_sysux(ax, cx, snd, rcv).ret;
 }
 
-#define l4_puts(s)  l4_sysux(L4_PUTS, (int)(s), NULL, NULL)
-#define l4_print(x) l4_sysux(L4_PRINT, (x), NULL, NULL)
-#define l4_halt()   l4_sysux(L4_HALT, 0, NULL, NULL)
+#ifndef MKWORD
 #define MKWORD(l, h)  (((l)&0xff)|(((h)&0xff)<<8))
+#endif
 
 #define l4_send(to, stg, msg) l4_send_ex(to, stg, msg, L4_BLOCK)
 #define l4_send_ex(to, stg, msg, flags) __l4_send(to, stg, msg, flags, 0)

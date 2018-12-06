@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libl4/l4/api.h>
+#include <l4/l4api.h>
 #include <errno.h>
 
 static int l4_sendcap_ex(l4id_t to, stage_t stg, cap_t capid, uint flags)

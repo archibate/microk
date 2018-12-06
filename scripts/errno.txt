@@ -151,3 +151,4 @@
 	ESTAGE13	: Bad IPC stage 13
 	ESTAGE14	: Bad IPC stage 14
 	ESTAGE15	: Bad IPC stage 15
+	EBADUS		: Bad user argument given to server

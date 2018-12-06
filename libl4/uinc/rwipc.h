@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libl4/l4/defs.h>
+#include <l4/l4defs.h>
 #include <stddef.h>
 
 #define l4_read(fr, buf, size) l4_read_ex(fr, buf, size, NULL)

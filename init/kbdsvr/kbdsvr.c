@@ -1,5 +1,5 @@
-#include <libl4/ipcmsgs.h>
-#include <libl4/l4/api.h>
+#include <l4/ipcmsgs.h>
+#include <l4/l4api.h>
 #include <asm/irqidxs.h>
 #include <asm/ioport.h>
 #include <asm/vkeys.h>

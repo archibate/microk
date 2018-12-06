@@ -1,16 +1,8 @@
-#include <libl4/ichipc.h>
-#include <libl4/rwipc.h>
+#include <fs/server.h>
+#include <debug.h>
 #include <asm/vinfo.h>
 #include <memory.h>
 #include "asc16.h"
-
-void error(int i, const char *s)
-{
-	//fprintf(stderr, "%s: %m\n", s, i);
-	//exit(i);
-	l4_print(i);
-	l4_halt();
-}
 
 #define COL_HILIGHT 0x00008
 #define COL_UNDERLN 0x10000
@@ -170,17 +162,17 @@ void vmon_setcolor(int num)
 	}
 }
 
-void vmon_puts(const char *s)
+void vmon_writes(const char *s, const char *end)
 {
 	int num, num_old;
 
 	putcursor(AT(x, y), col, 16 - cur_max, 16 - cur_min);
 
-	while (*s) {
+	while (s < end) {
 		if (s[0] == '\033' && s[1] == '[') {
 			num_old = num = 0;
 
-			for (s += 2; *s; s++) {
+			for (s += 2; s < end; s++) {
 				if ('0' <= *s && *s <= '9')
 					num = 10 * num + *s - '0';
 				else if (*s == ';')
@@ -216,6 +208,20 @@ void vmon_puts(const char *s)
 	putcursor(AT(x, y), col, 16 - cur_max, 16 - cur_min);
 }
 
+ssize_t vmon_write(struct file *file, const void *buf, size_t size)
+{
+	vmon_writes(buf, buf + size);
+	return size;
+}
+
+struct file_operations vmon_fops = {
+	.write = vmon_write,
+};
+
+struct file vmon_file = {
+	.f_op = &vmon_fops,
+};
+
 int xterm_server(void *vram, void *vinfo_p)
 {
 	memcpy(&video, vinfo_p, sizeof(video));
@@ -223,7 +229,7 @@ int xterm_server(void *vram, void *vinfo_p)
 
 	putcursor(AT(x, y), col, 16 - cur_max, 16 - cur_min);
 
-	while (1) {
+	/*while (1) {
 		l4id_t cli;
 		char buf[256];
 		ssize_t size = l4_read_ex(L4_ANY, buf, sizeof(buf) - 1, &cli);
@@ -232,11 +238,13 @@ int xterm_server(void *vram, void *vinfo_p)
 		buf[size] = 0;
 		vmon_puts(buf);
 		//l4_sendich(cli, size);
-		/*ICH_MSG msg;
+		/ *ICH_MSG msg;
 		l4id_t cli = l4_recv(L4_ANY, &msg);
 		vmon_puts(msg.ic_raw);
-		l4_send(cli, NULL);*/
-	}
+		l4_send(cli, NULL);* /
+	}*/
+	while (1)
+		fs_serve(&vmon_file, L4_ANY);
 
 	return 0;
 }

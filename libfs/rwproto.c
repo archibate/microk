@@ -1,40 +1,53 @@
-#include <fs/proto.h>
-#include <libl4/rwipc.h>
-#include <libl4/lwripc.h>
+#include <l4/rwipc.h>
+#include <l4/l4ipc.h>
+#include <l4/ichipc.h>
+#include <l4/capipc.h>
 #include <errno.h>
+#include "secrets.h"
+#include <numtools.h>
 
-static int need_large(const void *buf, size_t size)
+#define fi_sendargs(msg, svr)  l4_send(svr, STG_FSARGS, msg)
+#define fi_waitreply(svr)      l4_recvich(svr, STG_FSREPLY)
+
+//#define VOFF(x) ((x) & (PGSIZE-1))
+
+ssize_t fi_dorwfrag(l4id_t svr, fscmd_t rw, ulong addr, size_t size)
 {
-	if (size > L4_FRGSIZ * 2)
-		return 1;
-	else
-		return 0;
+	off_t voff = addr & (PGSIZE-1);
+
+	if (voff + size > PGSIZE)
+		return -EINVAL;
+
+	FS_ARGS msg;
+	msg.cmd = rw;
+	msg.voff = voff;
+	msg.size = size;
+	fi_sendargs(&msg, svr);
+
+	RC(l4_mkcap(FI_PRWCAP, addr & -PGSIZE));
+	RC(l4_sendcap(svr, STG_FSCAPS, FI_PRWCAP));
+
+	return fi_waitreply(svr);
 }
 
-ssize_t fs_read(l4id_t svr, void *buf, size_t size)
+ssize_t fi_dorw(l4id_t svr, fscmd_t rw, ulong addr, size_t size)
 {
-	int large = need_large(buf, size), tried = 0;
-again:
-	fs_sendcmd(svr, large ? FS_LREAD : FS_READ);
-	ssize_t ret = large ? l4_lwread(svr, buf, size) : l4_read(svr, buf, size);
-	if (!tried && ret == -ENOSYS) {
-		large = !large;
-		tried = 1;
-		goto again;
+	while (size > 0)
+	{
+		size_t len = MIN(size, PGSIZE);
+		fi_dorwfrag(svr, rw, addr, len);
+		size -= len;
+		addr += len;
 	}
-	return ret;
+	return size;
 }
 
-ssize_t fs_write(l4id_t svr, const void *buf, size_t size)
+ssize_t fi_write(l4id_t svr, const void *buf, size_t size)
 {
-	int large = need_large(buf, size), tried = 0;
-again:
-	fs_sendcmd(svr, large ? FS_LWRITE : FS_WRITE);
-	ssize_t ret = large ? l4_lwrite(svr, buf, size) : l4_write(svr, buf, size);
-	if (!tried && ret == -ENOSYS) {
-		large = !large;
-		tried = 1;
-		goto again;
-	}
-	return ret;
+	return fi_dorw(svr, FS_WRITE, (ulong)buf, size);
+}
+
+ssize_t fi_read(l4id_t svr, void *buf, size_t size)
+{
+	return fi_dorw(svr, FS_READ, (ulong)buf, size);
 }

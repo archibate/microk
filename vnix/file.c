@@ -1,4 +1,5 @@
 #include "unix.h"
+#include <fs/opensvr.h>
 #include <fs/proto.h>
 #include <errno.h>
 
@@ -34,7 +35,7 @@ int openat(int fd, const char *path, int oflags)
 		return -ENFILE;
 	if (svs[fd])
 		close(fd);
-	l4id_t svr = fs_opensvr(path, oflags);
+	l4id_t svr = fi_opensvr(path, oflags);
 	if (svr < 0)
 		return svr;
 	svs[fd] = svr;
@@ -57,7 +58,7 @@ int close(int fd)
 		return -ENFILE;
 	if (!svs[fd])
 		return -EBADFD;
-	fs_close(svs[fd]);
+	//fi_close(svs[fd]);
 	svs[fd] = 0;
 	return 0;
 }

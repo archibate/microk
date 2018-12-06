@@ -1,5 +1,6 @@
 D=../
 NAME=libl4
+INCNAME=l4
 KTE=a
 
 default: all

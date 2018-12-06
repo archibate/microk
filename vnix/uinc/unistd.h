@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fs/defs.h>
 #include <types.h>
+#include <fs/fsdefs.h>
 
 #define FILEMAX 128
 

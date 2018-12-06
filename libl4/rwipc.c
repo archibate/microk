@@ -1,5 +1,5 @@
-#include <libl4/rwipc.h>
-#include <libl4/ichipc.h>
+#include <l4/rwipc.h>
+#include <l4/ichipc.h>
 #include <memory.h>
 
 ssize_t l4_read_ex(l4id_t fr, void *buf, size_t size, l4id_t *pfr)

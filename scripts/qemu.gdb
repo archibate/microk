@@ -62,4 +62,6 @@ end
 #bc main.c:134
 #bc exec
 #bc _userbeg
-bc exec.c:15
+#bc main.c:131
+#bc main.c:61
+bc main.c:71

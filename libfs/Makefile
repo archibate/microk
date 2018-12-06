@@ -1,6 +1,6 @@
 D=../
 NAME=libfs
-INCNAME=.
+INCNAME=fs
 KTE=a
 
 default: all

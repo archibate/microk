@@ -1,7 +1,7 @@
 #pragma once
 
-#include <libl4/l4/api.h>
-#include <libl4/ipcmsgs.h>
+#include <l4/l4ipc.h>
+#include <l4/ipcmsgs.h>
 
 static int l4_sendich_ex(l4id_t to, stage_t stg, uint ich, int flags)
 {

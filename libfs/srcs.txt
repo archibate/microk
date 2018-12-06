@@ -1,3 +1,4 @@
-rwproto
 opensvr
-psvproto
+pathsvr
+rwproto
+server

@@ -1,8 +1,8 @@
-#include <libl4/ipcmsgs.h>
-#include <libl4/l4/api.h>
-#include <libl4/lwripc.h>
-#include <libl4/capipc.h>
-#include <libl4/rwipc.h>
+#include <l4/ipcmsgs.h>
+#include <l4/l4api.h>
+#include <l4/capipc.h>
+#include <l4/rwipc.h>
+#include <fs/proto.h>
 #include <types.h>
 #include <stddef.h>
 #include <memory.h>
@@ -59,14 +59,17 @@ void my_client(void)
 		asm volatile ("cli; hlt");
 	char buf[256];
 	ssize_t size = read(i, buf, sizeof(buf));
+#if 0
 	//l4_puts(buf);
 	close(i);
 	l4_write(L4ID_XTMSVR, buf, size);
 	l4_write(L4ID_COMSVR, buf, size);
+#endif
 
 	while (1) {
 		getichmsg(L4ID_KBDSVR, &msg);
-		l4_write(L4ID_XTMSVR, &msg.ic_raw, strlen(msg.ic_raw));
+		fi_write(L4ID_XTMSVR, &msg.ic_raw, strlen(msg.ic_raw));
+		//l4_write(L4ID_XTMSVR, &msg.ic_raw, strlen(msg.ic_raw));
 		l4_write(L4ID_COMSVR, &msg.ic_raw, strlen(msg.ic_raw));
 	}
 }
@@ -127,7 +130,7 @@ void main(void)
 		l4_lwrite(XTMSVR, buf, sizeof(buf));
 		//char s[] =  "Hello, LWRITE!\n";
 #endif
-		exec("hello.bin");
+		//exec("hello.bin");
 		my_client();
 	}
 }

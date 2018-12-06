@@ -1,6 +1,6 @@
-#include <fs/psvproto.h>
-#include <libl4/rwipc.h>
-#include <libl4/ichipc.h>
+#include <fs/pathsvr.h>
+#include <l4/rwipc.h>
+#include <l4/ichipc.h>
 
 ssize_t fspsv_recv_opener(OPENER_ARGS *oa, l4id_t fr)
 {

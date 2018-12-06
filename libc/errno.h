@@ -153,3 +153,4 @@
 #define ESTAGE13	151	// Bad IPC stage 13
 #define ESTAGE14	152	// Bad IPC stage 14
 #define ESTAGE15	153	// Bad IPC stage 15
+#define EBADUS	154	// Bad user request argument got

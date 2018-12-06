@@ -154,6 +154,7 @@ const char *err_msgs[] = {
 	"Bad IPC stage 13",
 	"Bad IPC stage 14",
 	"Bad IPC stage 15",
+	"Bad user request argument got",
 };
 
 const char *strerror(int err)

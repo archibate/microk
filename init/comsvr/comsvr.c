@@ -1,6 +1,5 @@
 #include <fs/proto.h>
-#include <libl4/rwipc.h>
-#include <libl4/lwripc.h>
+#include <l4/rwipc.h>
 #include <asm/ioport.h>
 
 
@@ -17,14 +16,16 @@ void my_putc(char c)
 	serial_putc(c);
 }
 
+#if 0
 static int serial_wrmain(const char *buf, size_t size)
 {
 	for (int i = 0; i < size; i++)
 		my_putc(buf[i]);
 	return size;
 }
+#endif
 
-#if 0
+#if 1
 void serial_server(l4id_t cli)
 {
 	char buf[256];
@@ -32,6 +33,8 @@ void serial_server(l4id_t cli)
 	{
 		l4id_t cli;
 		ssize_t size = l4_read_ex(L4_ANY, buf, sizeof(buf), &cli);
+		for (int i = 0; i < size; i++)
+			my_putc(buf[i]);
 #ifdef PMR
 		continue;
 #endif
