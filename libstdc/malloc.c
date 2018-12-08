@@ -1,16 +1,17 @@
-// vim: ts=4 sts=4 sw=4
+// vim: ts=4 sts=4 sw=4 fdm=marker
 // reference: http://wiki.0xffffff.org/posts/hurlex-11.html
 #include <malloc.h> // impelementation
 #include <memory.h> // memcpy in realloc
-#include <kern/page.h> // PGSIZE
+#include <l4/l4defs.h> // PGSIZE
+#define PGMASK (-PGSIZE)
 #include <sizet.h> // size_t
 typedef size_t addr_t;
 
 #include <unistd.h> // setbrk
 #include <assert.h> // assert
 
-#include <umemlay.h> // USER_STACK_BEG
-#define SLOB_BEG USER_STACK_BEG
+#include <sys/memlay.h> // STACK_BEG
+#define SLOB_BEG STACK_BEG
 
 #include <struct.h> // STRUCT()
 STRUCT(HNODE) {
@@ -26,10 +27,10 @@ HNODE *heap_head;
 static
 void set_break(void *p)
 {
-	static void *curr = 0;
+	static void *currbrk = 0;
 	p += PGSIZE;
-	if (curr != p)
-		setbrk(curr = p);
+	if (currbrk != p)
+		brk(currbrk = p);
 }
 
 void init_heap(void)
@@ -41,17 +42,19 @@ void init_heap(void)
 	heap_head->prev = heap_head;
 }
 
-#ifdef tprintf
+#ifdef dbg_printf // {{{
 void print_heap_status(void)
 {
-	tprintf("heap status %p:\n", heap_head);
+	dbg_printf("heap status %p:\n", heap_head);
 	list_foreach(curr, heap_head) {
 		size_t len = curr->next ?
 				(char*)curr->next - (char*)curr : 0;
-		tprintf("%c:%p:%d\n", curr->allocated ? 'M' : '-', curr, len);
+		dbg_printf("%c:%p:%d\n", curr->allocated ? 'M' : '-', curr, len);
 	}
 }
-#endif
+#else
+#define print_heap_status()
+#endif // }}}
 
 void *malloc(size_t len)
 {
@@ -97,11 +100,11 @@ void free(void *p)
 		list_remove_s2(curr);
 	}
 
-	/*if (!curr->next) {// && curr->prev && curr->prev->allocated) {
+	/*if (!curr->next) {// && curr->prev && curr->prev->allocated) { // {{{
 		curr->prev->next = 0;
 		FIXME!
 		setbrk(curr->prev + 1);
-	}*/
+	}*/ // }}}
 
 	curr->allocated = 0;
 }

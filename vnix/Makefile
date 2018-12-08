@@ -1,6 +1,6 @@
 D=../
 NAME=vnix
-INCNAME=.
+INCNAME=sys
 KTE=bin
 LDSCRIPT=vnix.ld
 

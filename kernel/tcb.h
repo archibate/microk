@@ -1,7 +1,7 @@
 #pragma once
 
 #include <struct.h>
-#include "l4/defs.h"
+#include "l4defs.h"
 
 STRUCT(TCB)
 {

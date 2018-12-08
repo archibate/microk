@@ -11,3 +11,4 @@
 #define POOL_ALLOC(pool)   (*--(pool)->_sp)
 #define POOL_FREE(pool, x) ((void)(*(pool)->_sp++ = (x)))
 #define POOL_SIZE(pool)    (ARRAY_SIZEOF((pool)->_stk))
+#define POOL_REST(pool)    ((pool)->_sp - (pool)->_stk)

@@ -137,20 +137,20 @@
 #define EMMSG	135	// Too many messages
 #define ENOTCAP	136	// Not a capability
 #define ELRWTERM	137	// Long read/write terminated
-#define ESTAGE	138	// Bad IPC stage
-#define ESTAGE1	139	// Bad IPC stage 1
-#define ESTAGE2	140	// Bad IPC stage 2
-#define ESTAGE3	141	// Bad IPC stage 3
-#define ESTAGE4	142	// Bad IPC stage 4
-#define ESTAGE5	143	// Bad IPC stage 5
-#define ESTAGE6	144	// Bad IPC stage 6
-#define ESTAGE7	145	// Bad IPC stage 7
-#define ESTAGE8	146	// Bad IPC stage 8
-#define ESTAGE9	147	// Bad IPC stage 9
-#define ESTAGE10	148	// Bad IPC stage 10
-#define ESTAGE11	149	// Bad IPC stage 11
-#define ESTAGE12	150	// Bad IPC stage 12
-#define ESTAGE13	151	// Bad IPC stage 13
-#define ESTAGE14	152	// Bad IPC stage 14
-#define ESTAGE15	153	// Bad IPC stage 15
-#define EBADUS	154	// Bad user request argument got
+#define ESTAGE	138	// Unmatched IPC stage
+#define ESTAGE1	139	// Unmatched IPC stage 1
+#define ESTAGE2	140	// Unmatched IPC stage 2
+#define ESTAGE3	141	// Unmatched IPC stage 3
+#define ESTAGE4	142	// Unmatched IPC stage 4
+#define ESTAGE5	143	// Unmatched IPC stage 5
+#define ESTAGE6	144	// Unmatched IPC stage 6
+#define ESTAGE7	145	// Unmatched IPC stage 7
+#define ESTAGE8	146	// Unmatched IPC stage 8
+#define ESTAGE9	147	// Unmatched IPC stage 9
+#define ESTAGE10	148	// Unmatched IPC stage 10
+#define ESTAGE11	149	// Unmatched IPC stage 11
+#define ESTAGE12	150	// Unmatched IPC stage 12
+#define ESTAGE13	151	// Unmatched IPC stage 13
+#define ESTAGE14	152	// Unmatched IPC stage 14
+#define ESTAGE15	153	// Unmatched IPC stage 15
+#define EBADUS	154	// Bad user argument given to server

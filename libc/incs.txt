@@ -10,3 +10,4 @@ stddef.h
 stdarg.h
 wchar.h
 errno.h
+alloca.h

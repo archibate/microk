@@ -2,7 +2,7 @@
 #pragma once
 
 #include <l4/l4defs.h>
-#include <types.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <struct.h>
 
@@ -35,6 +35,11 @@ static int l4_sysux(int ax, int cx, const __L4_MSG *snd, __L4_MSG *rcv)
 	return __l4_sysux(ax, cx, snd, rcv).ret;
 }
 
+#if 1
+#define l4_puts(s)  l4_sysux(L4_PUTS, (int)(s), NULL, NULL)
+#define l4_print(x) l4_sysux(L4_PRINT, (x), NULL, NULL)
+#define l4_halt()   l4_sysux(L4_HALT, 0, NULL, NULL)
+#endif
 #ifndef MKWORD
 #define MKWORD(l, h)  (((l)&0xff)|(((h)&0xff)<<8))
 #endif
@@ -66,20 +71,27 @@ static int l4_actv(cap_t tocid)
 	return l4_sysux(MKWORD(L4_ACTV, 0), MKWORD(tocid, 0), NULL, NULL);
 }
 
-static ssize_t l4_cmap(cap_t capid, ulong moff, ulong vstart, size_t size)
+static ssize_t l4_cmap(cap_t capid, ulong moff, ulong vstart, size_t size, uint mattr)
 {
 	L4_MSG regs;
 	regs.bx = moff;
 	regs.di = vstart;
 	regs.si = size;
+	regs.bp = mattr;
 	return l4_sysux(MKWORD(L4_CMAP, 0), MKWORD(0, capid), &regs, NULL);
 }
 
-static ssize_t l4_mkcap(cap_t capid, ulong va)
+static ssize_t l4_mkcap(cap_t capid, ulong va, uint mattr)
 {
 	L4_MSG regs;
 	regs.di = va;
+	regs.bp = mattr;
 	return l4_sysux(MKWORD(L4_MKCAP, 0), MKWORD(0, capid), &regs, NULL);
+}
+
+static l4id_t l4_getid(cap_t capid)
+{
+	return l4_sysux(MKWORD(L4_GETID, 0), MKWORD(0, capid), NULL, NULL);
 }
 #if 0 // unimpl. api {{{
 static int l4_call(int to, const __L4_MSG *arg, __L4_MSG *ret)

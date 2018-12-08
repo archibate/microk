@@ -7,5 +7,5 @@
 [BITS 32]
 
 _prog_beg_hello:
-	incbin "../hello/bin/hello.bin"
+	incbin "../isodir/bin/hello"
 _prog_end_hello:

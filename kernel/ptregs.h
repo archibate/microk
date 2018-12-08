@@ -1,8 +1,8 @@
 #pragma once
 
-#include <types.h>
+#include <inttypes.h>
 #include <struct.h>
-#include "l4/defs.h"
+#include "l4defs.h"
 #include "caps.h"
 #include "msg.h"
 
@@ -12,7 +12,7 @@ STRUCT(IF_REGS)
 {
 	MSGDAT msg0dat;
 	ulong cx, ax;
-	ulong es, ds, unused1, unused2;
+	ulong es, ds, unused1, x86_errcd;
 	ulong pc, cs, eflags, sp, ss;
 	MSG msgs[MAXMSG];
 	CAP C[MAXCAP]; // sized 3072 bytes // try to make this into one page?

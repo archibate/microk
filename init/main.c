@@ -3,24 +3,17 @@
 #include <l4/capipc.h>
 #include <l4/rwipc.h>
 #include <fs/proto.h>
-#include <types.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <memory.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <l4ids.h>
+#include <debug.h>
 
-#define KMEM_CAP 8
-#define VRAM_CAP 9
-
-int getich(int svr)
-{
-	ICH_MSG msg;
-	l4_send(svr, 1, NULL);
-	l4_recv(svr, 2, &msg);
-	return msg.ich;
-}
-
+#if 0 // {{{
 int getichmsg(int svr, ICH_MSG *msg)
 {
 	l4_send(svr, 1, NULL);
@@ -54,15 +47,15 @@ void txputc(int svr, uchar ch)
 void my_client(void)
 {
 	ICH_MSG msg;
-	int i = open("hello.bin", 0);
+	int i = open("hello.txt", 0);
 	if (i < 0)
-		asm volatile ("cli; hlt");
+		dbg_halt();
 	char buf[256];
 	ssize_t size = read(i, buf, sizeof(buf));
-#if 0
+#if 1
 	//l4_puts(buf);
 	close(i);
-	l4_write(L4ID_XTMSVR, buf, size);
+	fi_write(L4ID_XTMSVR, buf, size);
 	l4_write(L4ID_COMSVR, buf, size);
 #endif
 
@@ -73,15 +66,17 @@ void my_client(void)
 		l4_write(L4ID_COMSVR, &msg.ic_raw, strlen(msg.ic_raw));
 	}
 }
+#endif // }}}
 
 void main(void)
 {
-	if (!l4_fork(L4ID_PATHSVR)) {
-		if (!l4_fork(L4ID_KBDSVR)) {
-			if (!l4_fork(L4ID_COMSVR)) {
-				if (!l4_fork(L4ID_XTMSVR)) {
-					l4_cmap(VRAM_CAP, 0x0,    0x80000000,     -1L);
-					l4_cmap(KMEM_CAP, 0x7000, 0x9ffff000,  0x1000);
+	if (!fork()) {
+		if (!fork()) {
+			if (!fork()) {
+				if (!fork()) {
+					// {{{
+					//l4_cmap(VRAM_CAP, 0x0,    0x80000000,     -1L);
+					//l4_cmap(KMEM_CAP, 0x7000, 0x9ffff000,  0x1000);
 #if 0
 					l4_mkcap(123, 0x80000000);
 					l4_sendcap(0, 15, 123); 
@@ -99,27 +94,24 @@ void main(void)
 					l4_lwread(L4_ANY, buf, sizeof(buf));
 					l4_write(COMSVR, &buf, strlen(buf));
 #endif
-#endif
-					extern int xterm_server(void *vram, void *vinfo_p);
-					xterm_server((void*)0x80000000, (void*)0x9ffffb00);
+#endif // }}}
+					openat(1, "/dev/mon0", O_WRONLY);
+					openat(2, "/dev/mon0", O_WRONLY);
+					exec("/sys/xterm");
 				} else {
-					l4_actv(L4ID_XTMSVR);//
 					extern void serial_server(void);
 					serial_server();
 				}
 			} else {
-				l4_actv(L4ID_COMSVR);//
 				extern void keyboard_server(void);
 				keyboard_server();
 			}
 		} else {
-			l4_actv(L4ID_KBDSVR);//
 			extern void path_server(void);
 			path_server();
 		}
 	} else {
-		l4_actv(L4ID_PATHSVR);//
-#if 0
+#if 0 // {{{
 		l4_recvcap(L4_ANY, 15, 125);
 		l4_cmap(125, 0x0, 0x60000000, -1L);
 		memset((void*)0x60000000, 0x07, 4096);
@@ -129,8 +121,10 @@ void main(void)
 		static char buf[] = "Hello, XTERM!\n";
 		l4_lwrite(XTMSVR, buf, sizeof(buf));
 		//char s[] =  "Hello, LWRITE!\n";
-#endif
-		//exec("hello.bin");
-		my_client();
+#endif // }}}
+		openat(0, "/dev/kbd0", O_RDONLY);
+		openat(1, "/dev/vmon0", O_WRONLY);
+		openat(2, "/dev/vmon0", O_WRONLY);
+		exec("/bin/shell");
 	}
 }

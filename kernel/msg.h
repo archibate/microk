@@ -1,7 +1,7 @@
 #pragma once
 
-#include <l4/defs.h>
 #include <struct.h>
+#include "l4defs.h"
 #include "caps.h"
 
 UNION(MSGDAT)

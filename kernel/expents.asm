@@ -27,8 +27,10 @@ exp_common:
 	;push ebp ; fake stack frame
 	;mov ebp, esp
 
-	mov eax, [esp + 40] ; do_exp address
+	push esp
+	mov eax, [esp + 44] ; do_exp address
 	call eax
+	add esp, 4
 
 	;add esp, 8
 

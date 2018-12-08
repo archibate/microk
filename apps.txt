@@ -3,7 +3,12 @@ libc
 libl4
 libfs
 vnix
+libstdc
 hello
+cat
+xterm
+shell
+termctl
 init
 boot
 kernel

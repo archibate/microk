@@ -1,7 +1,8 @@
 #include "unix.h"
 
 void *__attribute__((section(".vsystab"))) vsystab[] = {
-	open, read, write, close, exec,
+	_exit, open, read, write, close, lseek, execa, fork, brk, sbrk, getpid, getppid, waitpid, getich, openat,
+	getsafeval, setsafeval,
 };
 
 void _start(void)

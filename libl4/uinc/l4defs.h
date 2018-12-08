@@ -1,6 +1,6 @@
 #pragma once
 
-#include <krnl4/l4/defs.h>
+#include <krnl4/l4defs.h>
 #include <struct.h>
 
 UNION(L4_MSG) // short message, exactly 20 bytes

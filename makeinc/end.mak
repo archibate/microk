@@ -3,7 +3,7 @@ always:
 	@:
 
 
-INCLUDE+=. uinc $Ninc
+INCLUDE+=uinc $Ninc .
 CFLAGS+=$(INCLUDE:%=-I%)
 
 LIBPATH+=$Nlib

@@ -10,7 +10,7 @@ timer
 irqents
 expents
 gen.expdfldoes
-expdump
+dbgdump
 panic
 print
 serial

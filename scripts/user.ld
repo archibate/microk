@@ -3,34 +3,39 @@ ENTRY(_start)
 
 SECTIONS {
 	. = 0x10000000;
-	.text : {
+	.text BLOCK(4K) : ALIGN(4K)
+	{
 		*(.text*)
 		*(.stext*)
 		*(.rdata*)
 		*(.rodata*)
 	}
-	.data : {
+	.data BLOCK(4K) : ALIGN(4K)
+	{
 		*(.data*)
 		*(.sdata*)
 	}
-	.bss : {
+	.bss BLOCK(4K) : ALIGN(4K)
+	{
 		*(.bss*)
 		*(.sbss*)
 		*(COMMON)
 	}
-	.stab : {
+	.stab BLOCK(4K) : ALIGN(4K)
+	{
 		*(.stab)
 	}
-	.stabstr : {
+	.stabstr BLOCK(4K) : ALIGN(4K)
+	{
 		*(.stabstr)
 	}
 	/DISCARD/ : {
-		/**(.eh_frame*)
-		*(.note*)
+		*(.eh_frame*)
 		*(.comment*)
+		*(.note*)
 		*(.GNU*)
 		*(.gnu*)
 		*(.dyn*)
-		*(.interp*)*/
+		*(.interp*)
 	}
 }

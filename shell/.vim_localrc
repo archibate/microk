@@ -1,0 +1,12 @@
+" set ft=vim
+
+nnoremap <F4> :wa<CR>
+nnoremap <F8> :wa<CR>:sh<CR><CR>
+nnoremap <F5> :wa<CR>:!make -Bj4 NODEP=1 install && make -Bj4 -C../xfont NODEP=1 install && make -j4 -C../.. NODEP=1 run<CR><CR>
+
+set fdm=marker
+
+""" To use aboves, please add the following statements to your ~/.vimrc
+"if filereadable(".vim_localrc")
+"  source .vim_localrc
+"endif

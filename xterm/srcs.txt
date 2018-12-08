@@ -1,0 +1,3 @@
+main
+palette
+asc16.fnt

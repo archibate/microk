@@ -2,6 +2,7 @@
 
 #include <l4/l4ipc.h>
 #include <l4/ipcmsgs.h>
+#include <errno.h> // EIO
 
 static int l4_sendich_ex(l4id_t to, stage_t stg, uint ich, int flags)
 {
@@ -15,6 +16,7 @@ static int l4_sendich_ex(l4id_t to, stage_t stg, uint ich, int flags)
 static uint l4_recvich_ex(l4id_t fr, stage_t stg, l4id_t *pfr)
 {
 	ICH_MSG icmsg;
+	icmsg.ich = -EIO;
 	fr = l4_recv(fr, stg, &icmsg);
 	if (pfr)
 		*pfr = fr;

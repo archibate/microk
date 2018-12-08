@@ -3,12 +3,13 @@
 #include <assert.h>
 #include <string.h>
 #include <memory.h>
+#include <fcntl.h>
 
 int fflush(FILE *f)
 {
-	if (f->f_oattr & OPEN_WR)
+	if (f->f_oattr & O_WRONLY)
 		file_wr_flush(f);
-	if (f->f_oattr & OPEN_RD)
+	if (f->f_oattr & O_RDONLY)
 		file_rd_flush(f);
 	return 0;
 }

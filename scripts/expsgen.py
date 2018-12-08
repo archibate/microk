@@ -19,7 +19,7 @@ def pr_entriext_inc():
 
 
 def pr_entries_inc():
-    has_errcd = [8] + list(range(10, 14))
+    has_errcd = [8] + list(range(10, 14+1))
 
     for i, exp in enumerate(exps):
         wr('exp' + str(i) + ':')
@@ -36,13 +36,13 @@ def pr_entinfo_h():
 
 
 def pr_dfldoes_c():
-    wr('void __attribute__((noreturn)) unhandled_exception(const char *msg);')
+    wr('void __attribute__((noreturn)) panic(const char *msg);')
     wr('')
     for exp in exps:
         wr('void __attribute__((weak)) do_' + exp)
         wr('(void)')
         wr('{')
-        wr('\tunhandled_exception("' + exp.upper() + '");')
+        wr('\tpanic("' + exp.upper() + '");')
         wr('}')
         wr('')
 

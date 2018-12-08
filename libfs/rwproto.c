@@ -24,7 +24,7 @@ ssize_t fi_dorwfrag(l4id_t svr, fscmd_t rw, ulong addr, size_t size)
 	msg.size = size;
 	fi_sendargs(&msg, svr);
 
-	RC(l4_mkcap(FI_PRWCAP, addr & -PGSIZE));
+	RC(l4_mkcap(FI_PRWCAP, addr & -PGSIZE, rw == FS_READ ? L4_ISRW : 0));
 	RC(l4_sendcap(svr, STG_FSCAPS, FI_PRWCAP));
 
 	return fi_waitreply(svr);
@@ -32,14 +32,20 @@ ssize_t fi_dorwfrag(l4id_t svr, fscmd_t rw, ulong addr, size_t size)
 
 ssize_t fi_dorw(l4id_t svr, fscmd_t rw, ulong addr, size_t size)
 {
+	size_t size0 = size;
 	while (size > 0)
 	{
-		size_t len = MIN(size, PGSIZE);
-		fi_dorwfrag(svr, rw, addr, len);
+		size_t flen = (ssize_t)size < 0 ? PGSIZE : MIN(size, PGSIZE);
+		ssize_t len = fi_dorwfrag(svr, rw, addr, flen);
+		if (len < 0)
+			return len;
 		size -= len;
 		addr += len;
+		//if (len == 0)
+		if (len < flen)
+			return size0 - size;
 	}
-	return size;
+	return size0;
 }
 
 ssize_t fi_write(l4id_t svr, const void *buf, size_t size)
@@ -50,4 +56,24 @@ ssize_t fi_write(l4id_t svr, const void *buf, size_t size)
 ssize_t fi_read(l4id_t svr, void *buf, size_t size)
 {
 	return fi_dorw(svr, FS_READ, (ulong)buf, size);
+}
+
+soff_t fi_lseek(l4id_t svr, soff_t offset, int whence)
+{
+	FS_ARGS msg;
+	msg.cmd = FS_LSEEK;
+	msg.offset = offset;
+	msg.whence = whence;
+	fi_sendargs(&msg, svr);
+
+	return fi_waitreply(svr);
+}
+
+ich_t fi_getich(l4id_t svr)
+{
+	FS_ARGS msg;
+	msg.cmd = FS_GETICH;
+	fi_sendargs(&msg, svr);
+
+	return fi_waitreply(svr);
 }

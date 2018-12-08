@@ -3,6 +3,7 @@
 #include <memory.h>
 #include <malloc.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 static
 void file_parse_oattr(FILE *f, const char *type)
@@ -10,9 +11,9 @@ void file_parse_oattr(FILE *f, const char *type)
 	unsigned int oattr = 0;
 
 	if (strfind(type, 'r') != -1)
-		oattr |= OPEN_RD;
+		oattr |= O_RDONLY;
 	if (strfind(type, 'w') != -1)
-		oattr |= OPEN_WR;
+		oattr |= O_WRONLY;
 
 	f->f_oattr = oattr;
 }
@@ -68,7 +69,7 @@ int fopen_s(FILE **pf, const char *name, const char *type)
 
 int fdclose_i(FILE *f)
 {
-	if (f->f_oattr & OPEN_WR)
+	if (f->f_oattr & O_WRONLY)
 		file_wr_flush(f);
 	return 0;
 }

@@ -1,26 +1,32 @@
-#include <l4/ipcmsgs.h>
-#include <l4/l4api.h>
+#include <fs/server.h>
+#include <fs/fsvrsimp.h>
 #include <asm/irqidxs.h>
+#include <l4/l4ipc.h>
 #include <asm/ioport.h>
 #include <asm/vkeys.h>
 #include "keymap.h"
 
-static uint keyboard_getich(void);
+static ich_t keyboard_getich(void);
+
+struct file_operations kbd_fops = {
+	.getich = (void*)keyboard_getich,
+	.read = fsvrsimp_read_by_getich,
+	.write = fsvrsimp_write_noperm,
+	.lseek = fsvrsimp_lseek_unseekable,
+};
+struct file kbd_file = {
+	.f_op = &kbd_fops,
+};
+
 void keyboard_server(void)
 {
-	ICH_MSG msg;
 	while (1)
-	{
-		l4id_t cli = l4_recv(L4_ANY, 1, &msg);
-		msg.ich = keyboard_getich();
-		msg.ic_raw[4] = 0;
-		l4_send(cli, 2, &msg);
-	}
+		fs_serve(&kbd_file, L4_ANY);
 }
 
 static _Bool ctrl_on, shift_on, caps_on;
 
-uint keyboard_getich(void)
+ich_t keyboard_getich(void)
 // ref: https://baike.so.com/doc/7103239-7326232.html
 {
 	L4_MSG regs;

@@ -4,14 +4,16 @@
 //#define YOUGLB
 //#define YOUSLT
 //#define PMR
+//#define YOUCOW
 //#define TPR
 #include <struct.h>
 #include <memory.h>
 #include <stddef.h>
-#include <types.h>
-#include <l4/defs.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <pool.h>
+#include <debug.h>
+#include "l4defs.h"
 #include "print.h"
 #include "ptregs.h"
 #include "panic.h"
@@ -22,10 +24,11 @@
 #include "irq.h"
 
 // ppgpool: done {{{
-POOL_TYPE(ulong, 1024) ppgpool;
+POOL_TYPE(ulong, 4096) ppgpool;
 
 ulong ppage(void)
 {
+	assert(POOL_REST(&ppgpool) >= 0);
 	return POOL_ALLOC(&ppgpool);
 }
 
@@ -62,6 +65,13 @@ ulong getcr3(void)
 	return cr3;
 }
 
+ulong getcr2(void)
+{
+	ulong cr2;
+	asm volatile ("mov %%cr2,%0" : "=r" (cr2) :: "memory");
+	return cr2;
+}
+
 void enacr0(ulong flags)
 {
 	ulong cr0;
@@ -96,7 +106,7 @@ void init_vpt(void) // {{{
 	pgt[0]    = 0;   // deny NULL pointer
 
 	setcr3((ulong)pgd);
-	enacr0(1<<31);
+	enacr0((1<<31)|(1<<16));
 #ifdef YOUGLB
 	enacr4(1<<7);
 #endif
@@ -154,24 +164,27 @@ ulong del_page(ulong va)
 }
 // }}}
 // tmpgpool: done {{{
-POOL_TYPE(ulong, 6) tmpgpool;
+POOL_TYPE(ulong, 8) tmpgpool;
 
 void init_tmpg(void)
 {
 	POOL_INIT(&tmpgpool);
-	for (ulong va = 0x120000; va < 0x120000 + POOL_SIZE(&tmpgpool) * 4096; va += 4096)
+	for (ulong va = 0x1f0000; va < 0x1f0000 + POOL_SIZE(&tmpgpool) * 4096; va += 4096)
 		POOL_FREE(&tmpgpool, va);
 }
 
 void *tmpg(ulong pa)
 {
+	assert(POOL_REST(&tmpgpool) >= 0);
 	ulong va = POOL_ALLOC(&tmpgpool);
 	map_page(va, pa | 3);
+	//tprintf("tmpg: %p\n", va);
 	return (void*)va;
 }
 
 void untmpg(void *v)
 {
+	//tprintf("untmpg: %p\n", v);
 	ulong pte = unmap_page((ulong)v);
 	assert(pte & 1);
 	POOL_FREE(&tmpgpool, (ulong)v);
@@ -195,33 +208,6 @@ ulong copiedpgd(void)
 	pd[1023] = pgd | 3 | 24;
 	untmpg(pd);
 	return pgd;
-}
-
-void forkizevpd(void)
-{
-	for (uint i = 1; i < 1023; i++) {
-		if (vpd[i] & 1) {
-			ulong pta = ppage();
-			ulong *pt = tmpg(pta);
-#if 1
-			for (uint k = 0; k < 1024; k++) {
-				if (vpt[i*1024+k] & 1) {
-					ulong pga = ppage();
-					ulong *pg = tmpg(pga);
-					ulong opgva = 4096*(i*1024+k); 
-					bcopy((ulong*)opgva, pg, 4096);
-					untmpg(pg);
-					pt[k] = pga | 7;
-				}
-			}
-#else
-			bcopy(&vpt[i*1024], pt, 4096);
-#endif
-			vpd[i] = pta | 7;
-			untmpg(pt);
-		}
-	}
-	setcr3(getcr3());
 }
 // }}}
 uint ticktsc(void) // performence monitoring: done {{{
@@ -428,44 +414,6 @@ int do_real(cap_t capid) // todo: will later to be removed, done in page fault i
 }
 #endif // }}}
 
-ssize_t do_cmap(cap_t capid, off_t moff, ulong vstart, size_t size)
-{
-	tprintf("do_cmap(%d,%#x,%#p,%#x)\n", capid, moff, vstart, size);
-
-	moff &= -4096L;
-	vstart &= -4096L;
-
-	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!cap->valid || !cap->is_mem)
-		return -ENOCAP;
-	if (size > cap->mem.size - moff)
-		size = cap->mem.size;
-	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
-	for ( ulong va = vstart, pte = cap->mem.pte + moff;
-		va < vstart + size;
-		va += 4096, pte += 4096 )
-		map_page(va, pte);
-	return size;
-}
-
-int do_mkcap(cap_t capid, ulong va)
-{
-	tprintf("do_mkcap(%d,%#p)\n", capid, va);
-
-	va &= -4096L;
-
-	V_VOLATILE CAP *cap = &vregs->C[capid];
-	if (!vpd[va >> 22])
-		return -EFAULT;
-	ulong pte = vpt[va >> 12];
-	if ((pte & 5) != 5)
-		return -EFAULT;
-	cap->mem.pte = pte;
-	cap->mem.size = 4096;
-	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
-	return 0;
-}
-
 void __attribute__((noreturn)) do_idle(void);
 
 void schedule(void)
@@ -488,7 +436,8 @@ void on_timer(void)
 	//schedule();
 }
 
-#define getregp()     (vpt[0x400]) // {{{
+#if 0 // {{{
+#define getregp()     (vpt[0x400])
 static inline void allocregp(void)
 {
 	vpt[0x400] = ppage() | 7;
@@ -503,7 +452,8 @@ static inline void fsetregp(ulong pte)
 {
 	free_ppg(vpt[0x400] & -4096L);
 	fsetregp(pte);
-} // }}}
+}
+#endif // }}}
 /*todo:int do_retnrecv(void)//{{{
 {
 	TCB *from = vcurr->recving;
@@ -578,6 +528,7 @@ int do_recv(l4id_t exptid, stage_t stg, cap_t capid)
 	{
 #ifdef YOUSTG
 		if (msg->stage != stg) {
+			printf("on recver=%d, sender=%d:\n", tidof(vcurr), msg->tid);
 			printf("\033[1;31mWARNING: recv: bad stage: %d!=%d\033[0m\n", msg->stage, stg);
 			return -(ESTAGE + msg->stage);
 		}
@@ -851,7 +802,17 @@ int do_actv(cap_t toid)
 	vpt[0x403] = mypte;
 	invlpg((ulong)wregs);
 	bcopy(&wregs->msg0dat, &vregs->msg0dat, sizeof(vregs->msg0dat));
+	tprintf("child: tid=%d, ax=%d\n", tidof(vcurr), vregs->ax);
+	vregs->ax = 0;
 	return 0;
+}
+
+l4id_t do_getid(cap_t toid)
+{
+	tprintf("do_getid(%d)\n", toid);
+	TCB *to = getcaptcb(toid);
+	if (!to) return -ENOCAP;
+	return tidof(to);
 }
 
 l4id_t alloc_tid(void)
@@ -862,6 +823,181 @@ l4id_t alloc_tid(void)
 	panic("alloc_tid: Too much task!!\n");
 }
 
+#define COW 512L
+
+void forkizevpd(uint beg, uint end)
+{
+	for (uint i = beg; i < end; i++)
+	{
+		if (!(vpd[i] & 1))
+			continue;
+
+		ulong pta = ppage();
+		ulong *pt = tmpg(pta);
+		bcopy(&vpt[i*1024], pt, 4096);
+		for (uint k = 0; k < 1024; k++)
+		{
+			ulong pte = vpt[i*1024+k];
+			if (pte & 1) {
+				ulong pga = ppage();
+				ulong *pg = tmpg(pga);
+				ulong opgva = 4096*(i*1024+k); 
+				bcopy((ulong*)opgva, pg, 4096);
+				untmpg(pg);
+				pt[k] = pga | 7;
+			} else {
+				pt[k] = 0;
+			}
+		}
+		vpd[i] = pta | 7;
+		untmpg(pt);
+	}
+	setcr3(getcr3());
+}
+
+#ifdef YOUCOW
+void mkcowizevpd(uint beg, uint end)
+{
+	for (uint i = beg; i < end; i++)
+	{
+		if (!(vpd[i] & 1))
+			continue;
+
+		ulong pta = ppage();
+		ulong *pt = tmpg(pta);
+		bcopy(&vpt[i*1024], pt, 4096);
+		for (uint k = 0; k < 1024; k++)
+		{
+			ulong pte = vpt[i*1024+k];
+			if ((pte & 7) == 7) { // present, user, writeable?
+				//printf("COW! %p:%p\n", 4096*(i*1024+k), pte);
+				pte = (pte & ~2) | COW; // readonly, marked COW
+				printf("COW! %p:%p\n", 4096*(i*1024+k), pte);
+			}
+			pt[k] = pte;
+		}
+		untmpg(pt);
+
+		vpd[i] = pta | 7;
+	}
+}
+#endif
+
+int cow_on_pgfault(ulong va, int errcd)
+{
+#ifdef YOUCOW
+	printf("\033[1;32mcow_on_pgfault(%p, %d)!\033[0m\n", va, errcd);
+	if ((errcd & 6) != 6)
+		return -EFAULT;
+	if ((vpd[va>>22] & 7) != 7)
+		return -EFAULT;
+
+	ulong pte = vpt[va>>12];
+	if ((pte & (7 | COW)) != (5 | COW))
+		return -EFAULT;
+
+	vpt[0x404] = pte;
+	invlpg(0x404000);
+	pte &= ~COW;
+	pte |= 2;
+	vpt[va>>12] = ppage() | 7;
+	invlpg(va);
+	bcopy((void*)0x404000, (void*)(va&-PGSIZE), 4096);
+	return 0;
+#else
+	return -EFAULT;
+#endif
+}
+
+void do_page_fault(IF_REGS *fregs)
+{
+	ulong va = getcr2();
+	int errcd = fregs->x86_errcd;
+	printf("poped ebx:%p\n", *(int*)(fregs->sp));
+	tprintf("%d:page fault at %p: %02X\n", tidof(vcurr), fregs->pc, *(uchar*)fregs->pc);
+	if ((fregs->cs & 3) != 3)
+		panic("kernel PAGE_FAULT: va=%p, errcd=%d", va, errcd);
+	dbg_dumpifregs(fregs);
+	if (cow_on_pgfault(va, errcd))
+		panic("unexcepted PAGE_FAULT: tid=%d, va=%p, errcd=%d", tidof(vcurr), va, errcd);
+	tprintf("%d:page fault return\n");
+}
+
+ssize_t do_cmap(cap_t capid, off_t moff, ulong vstart, size_t size, uint mattr)
+{
+	tprintf("do_cmap(%d,%#x,%#p,%#x,%d)\n", capid, moff, vstart, size, mattr);
+
+	mattr &= 2;
+	moff &= -4096L;
+	vstart &= -4096L;
+
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if (!cap->valid || !cap->is_mem)
+		return -ENOCAP;
+	if (size > cap->mem.size - moff)
+		size = cap->mem.size;
+	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
+	for ( ulong va = vstart, pte = (cap->mem.pte & (~2 | mattr)) + moff;
+		va < vstart + size; va += 4096, pte += 4096 )
+		map_page(va, pte);
+	return size;
+}
+
+int do_mkcap(cap_t capid, ulong va, uint mattr)
+{
+	/*if (mattr != 2)
+		printf("do_mkcap: mattr=%d\n", mattr);*/
+
+	tprintf("do_mkcap(%d,%#p,%d)\n", capid, va, mattr);
+
+	mattr &= 2;
+
+	va &= -4096L;
+
+	cow_on_pgfault(va, 4);
+
+	V_VOLATILE CAP *cap = &vregs->C[capid];
+	if ((vpd[va >> 22] & 5) != 5)
+		return -EFAULT;
+	ulong pte = vpt[va >> 12];
+	if ((pte & mattr) != mattr)
+		return -EFAULT;
+	cap->mem.pte = pte & (~2 | mattr);
+	cap->mem.size = 4096;
+	tprintf("cap: pte=%#p, size=%#p\n", cap->mem.pte, cap->mem.size);
+	return 0;
+}
+
+#if 0 // {{{
+l4id_t do_mktcb(cap_t tocid)
+{
+	tprintf("do_mktcb(%d)\n", tocid);
+	l4id_t tid = alloc_tid();
+
+	TCB *to = &T[tid];
+	to->mid = tid;
+	to->state = BLOCKED;
+	setup_thr_cap((CAP*)&vregs->C[tocid], to, 1);
+
+	ulong oldcr3 = getcr3();
+	mkcowizevpd(2, 1023);
+	M[tid] = copiedpgd();
+	setcr3(M[tid]);
+
+	forkizevpd(1, 2);
+	setup_thr_cap((CAP*)&vregs->C[0],     to, 1);
+	vcurr->wtmpte = vpt[0x400];
+	memset(vregs->msgs, 0, sizeof(vregs->msgs));
+
+	vregs->ax = 0;
+	tprintf("child: tid=%d, ax=%d\n", tidof(vcurr), vregs->ax);
+	setcr3(oldcr3);
+	/*settask(prev);
+	tprintf("parent: tid=%d, ax=%d\n", tidof(vcurr), vregs->ax);*/
+	return tid;
+}
+#endif // }}}
+
 int do_fork(cap_t tocid)
 {
 	tprintf("do_fork(%d)\n", tocid);
@@ -870,25 +1006,65 @@ int do_fork(cap_t tocid)
 	TCB *to = &T[tid];
 	to->mid = tid;
 	to->state = BLOCKED;
+	// {{{
 
-	ulong oldcr3 = getcr3();
+	/*TCB *prev = vcurr;*/
 
-	vregs->ax = 0;
+#if 0
+	for (int i = 2; i < 1024; i++) {
+		vpd[i] &= ~2; // readonly
+		vpd[i] |= COW; // and mark COW
+	}
+#else
+#ifdef YOUCOW
+	mkcowizevpd(2, 1023);a
+#endif
+#endif
+ // }}}
+	TCB *old = vcurr;
+
 	M[tid] = copiedpgd();
-	setcr3(M[tid]);
+	//setcr3(M[tid]);
+	settask(to);
 
-	forkizevpd();
+#ifdef YOUCOW // {{{
+	forkizevpd(1, 2);a
+#else // }}}
+	forkizevpd(1, 1023);
+	// {{{
+#endif // }}}
 	setup_thr_cap((CAP*)&vregs->C[0],     to, 1);
+	assert(vcurr == to);
 	vcurr->wtmpte = vpt[0x400];
 	memset(vregs->msgs, 0, sizeof(vregs->msgs));
-
-	setcr3(oldcr3);
+	vregs->ax = 0;
+	/*vregs->ax = 0; {{{
+	printf("child: tid=%d, ax=%d\n", tidof(vcurr), vregs->ax);*/
+	/*settask(prev);
+	printf("parent: tid=%d, ax=%d\n", tidof(vcurr), vregs->ax); }}} */
+	settask(old);
 	setup_thr_cap((CAP*)&vregs->C[tocid], to, 1);
 	return tid;
 }
 
+#if 0
+void do_unmap(ulong va)
+{
+	va &= -PGSIZE;
+
+	if ((vpd[va<<22] & 5) != 5)
+		return -EFAULT;
+	if ((vpt[va<<12] & 5) != 5)
+		return -EFAULT;
+
+	vpt[va<<12] = 0;
+	invlpg(va);
+}
+#endif
+
 void syscall(uint ax, uint cx)
 {
+	tprintf("\nsyscall: calling: tid=%d, ax=%d, sp=%p\n", tidof(vcurr), vregs->ax, vregs->sp);
 	uchar cl = cx & 0xff, ch = (cx >> 8) & 0xff;
 	uchar al = ax & 0xff, ah = (ax >> 8) & 0xff;
 	assert(vcurr->state == RUNNING);
@@ -899,13 +1075,15 @@ void syscall(uint ax, uint cx)
 	case L4_RECV : vregs->ax = do_recv (cl, stg,     ch); break;
 	case L4_FORK : vregs->ax = do_fork (cl             ); break;
 	case L4_ACTV : vregs->ax = do_actv (cl             ); break;
-	case L4_MKCAP: vregs->ax = do_mkcap(ch, vregs->msg0dat.di); break;
-	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.si); break;
+	case L4_GETID: vregs->ax = do_getid(cl             ); break;
+	case L4_MKCAP: vregs->ax = do_mkcap(ch, vregs->msg0dat.di, vregs->msg0dat.bp); break;
+	case L4_CMAP : vregs->ax = do_cmap (ch, vregs->msg0dat.bx, vregs->msg0dat.di, vregs->msg0dat.si, vregs->msg0dat.bp); break;
 	case L4_PUTS : printf("%d:l4_puts: \033[1;32m%s\033[0m\n", tidof(vcurr), (const char*)cx);        break;
 	case L4_PRINT: printf("%d:l4_print: cx=\033[1;32m%d=%#x(%c)\033[0m\n", tidof(vcurr), cx, cx);     break;
 	case L4_HALT : printf("halting...\n"); do_idle();                                                 break;
 	default      : printf("\033[1;31mWARNING: invalid syscall number: %d\033[0m\n", ax); vregs->ax = -ENOSYS; break;
 	};
+	tprintf("syscall: returning: tid=%d, ax=%d, sp=%p\n", tidof(vcurr), vregs->ax, vregs->sp);
 }
 
 void __attribute__((noreturn)) move_to_user(ulong eip, uint eflags, uint esp)
@@ -969,14 +1147,17 @@ void init_sys(void)
 	ulong oldpgd = getcr3();
 	idleM = copiedpgd();
 	setcr3(idleM);
-	forkizevpd();
+	forkizevpd(1, 1023);
 	setcr3(oldpgd);
 
+	vram_cap.mem.pte = (*(ulong*)0x7b00)|7;
+
+	new_pages_in(0x10000000 - 0x10000,  0x10000         );
 	map_pages_in(0x10000000, (ulong)_initrd | 7, _initrd_end - _initrd);
-	new_pages_in(0x10000000 + _initrd_end - _initrd,  0x8000          );
+	new_pages_in(0x10000000 + _initrd_end - _initrd,  0x10000         );
 	map_pages_in(0xc0000000, (ulong)_vnixrd | 7, _vnixrd_end - _vnixrd);
 	new_pages_in(0xc0000000 + _vnixrd_end - _vnixrd,  0x8000          );
-	new_pages_in(0xfeed0000,                          0x8000          );
+	new_pages_in(0xfeeb8000,                          0x20000         );
 
 	set_irq_enable(IRQ_KEYBOARD, 1);
 	irqsvr[IRQ_KEYBOARD] = &T[2];

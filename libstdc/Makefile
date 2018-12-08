@@ -1,5 +1,5 @@
 D=../
-NAME=libstd
+NAME=libstdc
 KTE=a
 
 default: all

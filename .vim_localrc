@@ -1,11 +1,11 @@
 au BufNewFile,BufRead .vim_localrc set ft=vim
-au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t l4id_t l4_recv_ret_t soff_t stage_t ino_t file_server_t fscmd_t fotype_t
-au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT CAP IF_REGS L4_MSG LWR_MSG LWR_CLI TX_MSG ICH_MSG SEGDESC GATEDESC DIRENT OPENER_ARGS FS_ARGS
-au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_FRGSIZ L4_SEND L4_RECV L4_ACTV L4_FORK L4_CMAP L4_MKCAP L4_ISCAP L4_BLOCK L4_REPLY L4_ISRW PGSIZE FS_READ FS_WRITE FS_LREAD FS_LWRITE FS_SREAD FS_SWRITE
-au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXMSG MAXIRQ FILEMAX PATHMAX NAMEMAX EBADFD EMMSG ELRWTERM ESTAGE ENOCAP ENOTCAP EWBLOCK EBADUS ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING O_RDONLY O_WRONLY O_RDWR O_EXEC O_CREAT
-au BufNewFile,BufRead *.c,*.h syn keyword Function vpt vpd vregs wregs vcurr vldt MKWORD LOBYTE HIBYTE L4_IRQ L4_STAGE L4_AXSTG L4_AXSYS MAX MIN
+au BufNewFile,BufRead *.c,*.h syn keyword Type uchar ushort uint ulong cap_t l4id_t l4_recv_ret_t soff_t stage_t ino_t file_server_t fscmd_t fotype_t pid_t wstat_t ich_t svalue_t
+au BufNewFile,BufRead *.c,*.h syn keyword Type TCB MSG MSGDAT CAP IF_REGS L4_MSG LWR_MSG LWR_CLI TX_MSG ICH_MSG SEGDESC GATEDESC DIRENT OPENER_ARGS FS_ARGS VIDEO_INFO
+au BufNewFile,BufRead *.c,*.h syn keyword Constant L4_NIL L4_ANY L4_FRGSIZ L4_SEND L4_RECV L4_ACTV L4_FORK L4_CMAP L4_MKCAP L4_GETID L4_ISCAP L4_BLOCK L4_REPLY L4_ISRW PGSIZE FS_READ FS_WRITE FS_LREAD FS_LWRITE FS_SREAD FS_SWRITE FS_LSEEK FS_CLOSE FS_GETICH FS_PUTICH
+au BufNewFile,BufRead *.c,*.h syn keyword Constant MAXTASK MAXCAP MAXOPENS MAXMSG MAXIRQ FILEMAX PATHMAX NAMEMAX EBADFD EMMSG ELRWTERM ESTAGE ENOCAP ENOTCAP EWBLOCK EBADUS ONRECV ONSEND ONREPLY WAITRET BLOCKED RUNNING O_RDONLY O_WRONLY O_RDWR O_EXEC O_CREAT WIFEXITED WEXITSTATUS
+au BufNewFile,BufRead *.c,*.h syn keyword Function vpt vpd tmpd vregs wregs vcurr vldt MKWORD LOBYTE HIBYTE L4_IRQ L4_STAGE L4_AXSTG L4_AXSYS MAX MIN
 au BufNewFile,BufRead *.c,*.h syn keyword Keyword STRUCT UNION L4_MSG_STRUCT END_L4_MSG_STRUCT assert __attribute__ ARRAY_SIZEOF
-au BufNewFile,BufRead *.c,*.h syn keyword Constant IRQ_TIMER IRQ_KEYBOARD IRQ_MOUSE
+au BufNewFile,BufRead *.c,*.h syn keyword Constant VPD VPT TMPD COW IRQ_TIMER IRQ_KEYBOARD IRQ_MOUSE
 au BufNewFile,BufRead *.c,*.h syn keyword Typedef POOL_TYPE
 
 set fdm=marker

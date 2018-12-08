@@ -64,7 +64,6 @@ exp13:
 	jmp exp_common
 
 exp14:
-	push dword 0
 	push dword do_page_fault
 	jmp exp_common
 

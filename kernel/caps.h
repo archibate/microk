@@ -1,6 +1,6 @@
 #pragma once
 
-#include <types.h>
+#include <inttypes.h>
 #include <struct.h>
 STRUCT(MEM_CAP)
 {

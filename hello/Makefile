@@ -1,6 +1,6 @@
 D=../
 NAME=hello
-KTE=bin
+KTE=elf
 
 default: all
 
@@ -14,6 +14,7 @@ all: $(IMAGE)
 
 PHONY+=install
 install: $(IMAGE)
+	cp $< $Nbin/$(NAME)
 
 
 include $Mend.mak

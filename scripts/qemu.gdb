@@ -10,15 +10,34 @@ target remote localhost:1234
 set architecture i386
 #break *0x7C00
 
-# For kernel debugging
-# Add KERNEL file for debugging information
-add-symbol-file kernel/bin/kernel.elf 0x100000
-add-symbol-file vnix/bin/vnix.elf 0xc0000000
-add-symbol-file init/bin/init.elf 0x10000000
-
 # For both ;)
 set disassemble-next-line on
 set disassembly-flavor intel
+
+# For kernel debugging
+# Add KERNEL file for debugging information
+define asf
+	add-symbol-file $arg0/bin/$arg0.elf $arg1
+end
+
+define asf-k
+	asf kernel 0x100000
+end
+
+define asf-v
+	asf vnix 0xc0000000
+end
+
+define asfu
+	asf $arg0 0x10000000
+end
+
+asf-k
+asf-v
+b panic
+b exp14
+b exp13
+b do_break_point
 
 set $vregs = ((IF_REGS*)0x400000)
 set $wregs = ((IF_REGS*)0x403000)
@@ -43,25 +62,5 @@ define xsi
 	x/10i *(void**)($esp+4)
 end
 
-b panic
-b exp14
-b exp13
-b do_break_point
-#bc l4_lwritepga
-define o
-	bc l4_recvcap
-	bc __l4_sysux
-	bt
-end
-#bc main.c:89
-#bc do_send
-#bc sys.c:630
-#bc lwripc.c:55
-#bc main.c:96
-#bc l4_lwread_ex
-#bc main.c:134
-#bc exec
-#bc _userbeg
-#bc main.c:131
-#bc main.c:61
-bc main.c:71
+asfu init
+bc fork

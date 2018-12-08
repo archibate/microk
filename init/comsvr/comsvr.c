@@ -41,7 +41,6 @@ void serial_server(l4id_t cli)
 		//l4_puts("!!!!!!!!!!!!!!!");
 		//l4_send_ex(cli, NULL, 0);
 	}
-	int ret;
 	/*switch (fs_recvcmd(cli)) {
 		case FS_WRITE : ret = serial_wrmain(buf,   l4_read(cli, buf, sizeof(buf))); break;
 		case FS_LWRITE: ret = serial_wrmain(buf, l4_lwread(cli, buf, sizeof(buf))); break;

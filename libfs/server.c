@@ -24,12 +24,21 @@ l4id_t fs_serve(struct file *file, l4id_t cli)
 			return -EBADUS;
 
 		RC(l4_recvcap(cli, STG_FSCAPS, FS_PRWCAP));
-		RC(l4_cmap(FS_PRWCAP, 0x0, FS_PRWTMPADR, PGSIZE));
+		RC(l4_cmap(FS_PRWCAP, 0x0, FS_PRWTMPADR, PGSIZE, msg.cmd == FS_READ ? L4_ISRW : 0));
 
+		ulong addr = FS_PRWTMPADR + msg.voff;
 		if (msg.cmd == FS_WRITE)
-			res = file->f_op->write(file, (const void *)(FS_PRWTMPADR + msg.voff), msg.size);
+			res = file->f_op->write(file, (const void *) addr, msg.size);
 		else
-			res = file->f_op->read(file, (void *)(FS_PRWTMPADR + msg.voff), msg.size);
+			res = file->f_op->read(file, (void *) addr, msg.size);
+	}
+	else if (msg.cmd == FS_LSEEK)
+	{
+		res = file->f_op->lseek(file, msg.offset, msg.whence);
+	}
+	else if (msg.cmd == FS_GETICH)
+	{
+		res = file->f_op->getich(file);
 	}
 	else
 	{

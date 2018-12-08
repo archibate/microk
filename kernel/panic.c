@@ -2,6 +2,11 @@
 #include "print.h"
 #include <stdarg.h>
 #include <memory.h>
+#define DDDUMP
+#ifdef DDDUMP
+#include <debug.h>
+#include "ptregs.h"
+#endif
 
 static
 void __attribute__((noreturn)) cpu_halt(void)
@@ -14,11 +19,9 @@ void __attribute__((noreturn)) cpu_halt(void)
 static
 void __attribute__((noreturn)) halt(void)
 {
-	printf("cpu dump:\n");
-
-	unsigned long cr2;
-	asm volatile ("movl %%cr2, %%eax\n" : "=a" (cr2));
-	printf("cr2=%p\n", cr2);
+#ifdef DDDUMP
+	dbg_dumpifregs((IF_REGS*)0x400000);
+#endif
 
 	memset((char *) 0xa0000, 0x0c, 320 * 1);
 

@@ -135,20 +135,20 @@
 	EMMSG		: Too many messages
 	ENOTCAP		: Not a capability
 	ELRWTERM	: Long read/write terminated
-	ESTAGE		: Bad IPC stage
-	ESTAGE1		: Bad IPC stage 1
-	ESTAGE2		: Bad IPC stage 2
-	ESTAGE3		: Bad IPC stage 3
-	ESTAGE4		: Bad IPC stage 4
-	ESTAGE5		: Bad IPC stage 5
-	ESTAGE6		: Bad IPC stage 6
-	ESTAGE7		: Bad IPC stage 7
-	ESTAGE8		: Bad IPC stage 8
-	ESTAGE9		: Bad IPC stage 9
-	ESTAGE10	: Bad IPC stage 10
-	ESTAGE11	: Bad IPC stage 11
-	ESTAGE12	: Bad IPC stage 12
-	ESTAGE13	: Bad IPC stage 13
-	ESTAGE14	: Bad IPC stage 14
-	ESTAGE15	: Bad IPC stage 15
+	ESTAGE		: Unmatched IPC stage
+	ESTAGE1		: Unmatched IPC stage 1
+	ESTAGE2		: Unmatched IPC stage 2
+	ESTAGE3		: Unmatched IPC stage 3
+	ESTAGE4		: Unmatched IPC stage 4
+	ESTAGE5		: Unmatched IPC stage 5
+	ESTAGE6		: Unmatched IPC stage 6
+	ESTAGE7		: Unmatched IPC stage 7
+	ESTAGE8		: Unmatched IPC stage 8
+	ESTAGE9		: Unmatched IPC stage 9
+	ESTAGE10	: Unmatched IPC stage 10
+	ESTAGE11	: Unmatched IPC stage 11
+	ESTAGE12	: Unmatched IPC stage 12
+	ESTAGE13	: Unmatched IPC stage 13
+	ESTAGE14	: Unmatched IPC stage 14
+	ESTAGE15	: Unmatched IPC stage 15
 	EBADUS		: Bad user argument given to server

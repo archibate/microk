@@ -2,3 +2,8 @@ vsystab
 file
 filerw
 exec
+fork
+exit
+brk
+wait
+sval

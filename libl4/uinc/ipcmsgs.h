@@ -1,7 +1,7 @@
 #pragma once
 
 #include <struct.h>
-#include <types.h>
+#include <inttypes.h>
 
 STRUCT(ICH_MSG)
 {

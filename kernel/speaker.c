@@ -1,4 +1,4 @@
-#include <types.h>
+#include <inttypes.h>
 #include <asm/ioport.h>
 
 static void speaker_phase(uint32_t freq)

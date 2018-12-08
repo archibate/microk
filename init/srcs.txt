@@ -1,9 +1,11 @@
 start
 main
+progs/cat
 progs/hello
+progs/xterm
+progs/shell
+progs/termctl
 pathsvr/main
 kbdsvr/kbdsvr
 kbdsvr/keymap
 comsvr/comsvr
-xterm/main
-xterm/asc16.fnt
