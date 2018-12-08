@@ -1,7 +1,7 @@
 .incl
 libc
 libl4
-libfs
+fs
 vnix
 libstdc
 ramfs

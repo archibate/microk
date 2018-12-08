@@ -1,5 +1,6 @@
 #include <l4/l4api.h>
 #include <fs/fsdefs.h>
+#include <fs/opensvr.h>
 #include <fs/pathsvr.h>
 #include <fs/server.h>
 #include <fs/fsvrsimp.h>
@@ -27,7 +28,7 @@ l4id_t open_path(const char *path, uint oflags)
 {
 	for (int i = 0; i < ARRAY_SIZEOF(ents); i++)
 		if (!ents[i].path)
-			return -ENOENT;
+			break;
 		else if (!strcmp(ents[i].path, path)) /*{ l4_puts(path);
 			//l4_print(i);
 			l4id_t svr = */
@@ -35,8 +36,8 @@ l4id_t open_path(const char *path, uint oflags)
 			/*l4_print(svr);
 			return svr;
 		}*/
-
-	return -ENOENT;
+	
+	return fi_psvopensvr(L4ID_RAMFSVR, path, oflags);
 }
 
 void add_path(const char *path, struct inode *inode)

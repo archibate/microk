@@ -74,7 +74,7 @@ void main(void)
 		if (!fork()) {
 			if (!fork()) {
 				if (!fork()) {
-					/*if (!fork()) {
+					if (!fork()) {
 					// {{{
 					//l4_cmap(VRAM_CAP, 0x0,    0x80000000,     -1L);
 					//l4_cmap(KMEM_CAP, 0x7000, 0x9ffff000,  0x1000);
@@ -99,7 +99,7 @@ void main(void)
 						openat(1, "/dev/mon0", O_WRONLY);
 						openat(2, "/dev/mon0", O_WRONLY);
 						_exit(exec("/sys/ramfs"));
-					}*/
+					}
 					openat(1, "/dev/mon0", O_WRONLY);
 					openat(2, "/dev/mon0", O_WRONLY);
 					_exit(exec("/sys/xterm"));

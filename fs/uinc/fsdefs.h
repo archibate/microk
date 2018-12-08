@@ -20,6 +20,7 @@ typedef int fscmd_t;
 #define O_RDWR   3
 #define O_EXEC   4
 #define O_CREAT  8
+#define O_DIR    16
 typedef int fotype_t;
 
 #define SEEK_SET 0

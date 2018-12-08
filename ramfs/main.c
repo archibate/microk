@@ -10,13 +10,15 @@
 #include <stdio.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <alloca.h>
 
 int fd0;
 
 #define CLUSIZ  1024
 #define FC0_BASE 0xc00
+#define FAT_SIZ 0x0400
+#define ROT_SIZ 0x0400
 #define FAT_OFF (0x1000+FC0_BASE)
-#define FAT_SIZ (0x0400+FC0_BASE)
 #define ROT_OFF (0x1800+FC0_BASE)
 #define DAT_OFF (0x4400+FC0_BASE)
 #define MAXCLU  (FAT_SIZ*2/3)
@@ -43,7 +45,8 @@ struct superblock ramfs_super = {
 };
 #endif // }}}
 
-extern void setup_ramfs_root(struct inode *inode);
+l4id_t open_path(const char *path, uint oflags);
+void setup_ramfs_root(struct inode *inode);
 int main(void)
 {
 	fd0 = open("/dev/fd0", O_RDONLY);
@@ -57,7 +60,46 @@ int main(void)
 
 	setup_ramfs_root(&inodes[0]);
 
-	return 0;
+	l4_puts("/sys/ramfs: path server started\n");
+
+	while (1) {
+		OPENER_ARGS oa;
+		if (0 > fspsv_recv_opener(&oa, L4_ANY)) {
+			printf("WARNING: /sys/ramfs: fspsv_recv_opener() < 0\n");
+			continue;
+		}
+		l4id_t svr = open_path(oa.path, oa.oflags);
+		fspsv_reply_opener(&oa, svr);
+	}
+}
+
+ino_t get_ino_of(const char *path)
+{
+	l4_puts(path);
+	struct inode *root = &inodes[0];
+	struct file *dir = alloca(sizeof(struct file));
+	root->i_fop->open(dir, root, O_RDONLY);
+
+	struct direntry ent;
+	while (dir->f_op->readdir(dir, &ent)) {
+		l4_puts(ent.d_name);
+		if (!strcmp(ent.d_name, path)) {
+			l4_puts("/sys/ramfs: got\n");
+			return ent.d_ino;
+		}
+	}
+
+	l4_puts("/sys/ramfs: ENOENT\n");
+	return -ENOENT;
+}
+
+l4id_t open_path(const char *path, uint oflags)
+{
+	ino_t ino = get_ino_of(path);
+	if (ino < 0)
+		return ino;
+	struct inode *inode = &inodes[ino];
+	return inode->i_op->opensv(inode, oflags);
 }
 
 extern struct file_operations  ramfs_fops;
@@ -81,6 +123,7 @@ int ramfs_root_open(struct file *file, struct inode *inode, uint oflags)
 
 ssize_t ramfs_root_read(struct file *file, void *buf, size_t size)
 {
+	size = MAX(size, ROT_SIZ);
 	return pread(fd0, buf, size, ROT_OFF + file->f_pos);
 }
 
@@ -245,7 +288,7 @@ int ramfs_readdir(struct file *file, struct direntry *ent)
 {
 	struct dos_entry dosent;
 	int ret = file->f_op->read(file, &dosent, sizeof(dosent));
-	if (ret < 0)
+	if (ret <= 0)
 		return ret;
 
 	get_dos_entry_name(ent->d_name, &dosent);
@@ -256,7 +299,7 @@ int ramfs_readdir(struct file *file, struct direntry *ent)
 	setup_ramfs_inode(inode);
 	init_inode_with_dos(inode, &dosent);
 
-	return 0;
+	return 1;
 }
 
 struct file_operations ramfs_fops = {
