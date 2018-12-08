@@ -17,3 +17,6 @@ int strfindlin(const char *src, const char *chrs);
 char *strskipin(const char *dst, const char *chrs);
 int strchop(char *dst, const char *chrs);
 char *strtrim(char *dst, const char *chrs);
+// followings are actually implemented in libstdc:
+char *strndup(const char *s, unsigned long n);
+char *strdup(const char *s);

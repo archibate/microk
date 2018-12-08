@@ -5,6 +5,7 @@
 #include <asm/vinfo.h>
 #include <memory.h>
 #include <atoi.h>
+#include <l4capids.h>
 #include "asc16.h"
 
 #define COL_HILIGHT 0x00008
@@ -265,9 +266,6 @@ int xterm_server(void *vram, void *vinfo_p)
 
 	return 0;
 }
-
-#define KMEM_CAP 8
-#define VRAM_CAP 9
 
 int main(void)
 {

@@ -13,6 +13,8 @@
 #include <errno.h>
 #include <pool.h>
 #include <debug.h>
+#include <l4capids.h>
+#include <l4ids.h>
 #include "l4defs.h"
 #include "print.h"
 #include "ptregs.h"
@@ -606,6 +608,7 @@ int do_send(l4id_t toid, stage_t stg, uint flags, cap_t capid)
 	{
 #ifdef YOUSTG
 		if (to->expstage != stg) {
+			printf("on recver=%d, sender=%d:\n", to->expstage, tidof(vcurr));
 			printf("\033[1;31mWARNING: send: bad stage: %d!=%d\033[0m\n", to->expstage, stg);
 			return -(ESTAGE + to->expstage);
 		}
@@ -1160,7 +1163,7 @@ void init_sys(void)
 	new_pages_in(0xfeeb8000,                          0x20000         );
 
 	set_irq_enable(IRQ_KEYBOARD, 1);
-	irqsvr[IRQ_KEYBOARD] = &T[2];
+	irqsvr[IRQ_KEYBOARD] = &T[L4ID_KBDSVR];
 
 	vcurr = &T[0];
 	vcurr->mid = 0;
@@ -1169,8 +1172,8 @@ void init_sys(void)
 
 	vcurr->wtmpte = vpt[0x400];
 
-	vregs->C[8] = kmem_cap;
-	vregs->C[9] = vram_cap;
+	vregs->C[KMEM_CAP] = kmem_cap;
+	vregs->C[VRAM_CAP] = vram_cap;
 
 	move_to_user(0x10000000,      0x202 + (3<<12),              0xfeed7f90      );
 }

@@ -4,6 +4,7 @@ progs/cat
 progs/hello
 progs/xterm
 progs/shell
+progs/ramfs
 progs/termctl
 pathsvr/main
 kbdsvr/kbdsvr

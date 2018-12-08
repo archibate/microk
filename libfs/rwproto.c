@@ -4,6 +4,8 @@
 #include <l4/capipc.h>
 #include <errno.h>
 #include "secrets.h"
+#include <fs/file.h> // dirent
+#include <fs/proto.h> // impelementation
 #include <numtools.h>
 
 #define fi_sendargs(msg, svr)  l4_send(svr, STG_FSARGS, msg)
@@ -69,11 +71,37 @@ soff_t fi_lseek(l4id_t svr, soff_t offset, int whence)
 	return fi_waitreply(svr);
 }
 
+ssize_t fi_pwrite(l4id_t svr, const void *buf, size_t size, off_t offset)
+{
+	int ret = fi_lseek(svr, offset, SEEK_SET);
+	if (ret < 0)
+		return ret;
+	return fi_dorw(svr, FS_WRITE, (ulong)buf, size);
+}
+
+ssize_t fi_pread(l4id_t svr, void *buf, size_t size, off_t offset)
+{
+	int ret = fi_lseek(svr, offset, SEEK_SET);
+	if (ret < 0)
+		return ret;
+	return fi_dorw(svr, FS_READ, (ulong)buf, size);
+}
+
 ich_t fi_getich(l4id_t svr)
 {
 	FS_ARGS msg;
 	msg.cmd = FS_GETICH;
 	fi_sendargs(&msg, svr);
 
+	return fi_waitreply(svr);
+}
+
+int fi_readdir(l4id_t svr, struct direntry *ent)
+{
+	FS_ARGS msg;
+	msg.cmd = FS_READDIR;
+	fi_sendargs(&msg, svr);
+
+	l4_read(svr, ent, sizeof(*ent));
 	return fi_waitreply(svr);
 }

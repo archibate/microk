@@ -9,6 +9,8 @@ target remote localhost:1234
 #set architecture i8086
 set architecture i386
 #break *0x7C00
+#break *0x10000000
+#delete 1
 
 # For both ;)
 set disassemble-next-line on
@@ -63,4 +65,4 @@ define xsi
 end
 
 asfu init
-bc fork
+c

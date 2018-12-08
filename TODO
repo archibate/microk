@@ -1,5 +1,8 @@
+init/main.c:77!!!!
 more vm operating API? better!
+setjmp, longjmp!!
 pathsvr_operations!
+proxy pathsvr!
 init/exec.c!!!!!!
 staging system!!
 L4_REPLY, L4_IRQRCV, ... distinquish them please!!!!!!!

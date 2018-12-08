@@ -1,7 +1,8 @@
 #pragma once
 
-#include "fstypes.h"
+#include <fs/fsdefs.h>
 
+#if 0
 #define DT_UNKNOWN 0	// The file type could not be determined.
 #define DT_REG     1	// This is a regular file.
 #define DT_SOCK    2	// This is a UNIX domain socket.
@@ -10,11 +11,10 @@
 #define DT_DIR     5	// This is a directory.
 #define DT_FIFO    6	// This is a named pipe (FIFO).
 #define DT_LNK     7	// This is a symbolic link.
+#endif
 
-STRUCT(DIRENT)
+struct direntry
 {
-	ino_t  d_ino;			// Inode number
-	ushort d_reclen;		// Length of this record
-	uchar  d_type;			// Type of file
-	char   d_name[NAMEMAX+1];	// Null terminated file name
+	ino_t  d_ino;
+	char   d_name[NAMEMAX+1];
 };

@@ -4,6 +4,7 @@ libl4
 libfs
 vnix
 libstdc
+ramfs
 hello
 cat
 xterm

@@ -74,6 +74,7 @@ void main(void)
 		if (!fork()) {
 			if (!fork()) {
 				if (!fork()) {
+					/*if (!fork()) {
 					// {{{
 					//l4_cmap(VRAM_CAP, 0x0,    0x80000000,     -1L);
 					//l4_cmap(KMEM_CAP, 0x7000, 0x9ffff000,  0x1000);
@@ -95,9 +96,13 @@ void main(void)
 					l4_write(COMSVR, &buf, strlen(buf));
 #endif
 #endif // }}}
+						openat(1, "/dev/mon0", O_WRONLY);
+						openat(2, "/dev/mon0", O_WRONLY);
+						_exit(exec("/sys/ramfs"));
+					}*/
 					openat(1, "/dev/mon0", O_WRONLY);
 					openat(2, "/dev/mon0", O_WRONLY);
-					exec("/sys/xterm");
+					_exit(exec("/sys/xterm"));
 				} else {
 					extern void serial_server(void);
 					serial_server();
@@ -125,6 +130,6 @@ void main(void)
 		openat(0, "/dev/kbd0", O_RDONLY);
 		openat(1, "/dev/vmon0", O_WRONLY);
 		openat(2, "/dev/vmon0", O_WRONLY);
-		exec("/bin/shell");
+		_exit(exec("/bin/shell"));
 	}
 }

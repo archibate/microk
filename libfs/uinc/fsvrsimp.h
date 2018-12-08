@@ -14,5 +14,7 @@ static ssize_t fsvrsimp_read_noperm(struct file *file, void *buf, size_t size)
 { return -EPERM; }
 static ssize_t fsvrsimp_write_noperm(struct file *file, const void *buf, size_t size)
 { return -EPERM; }
+static ssize_t fsvrsimp_write_rofs(struct file *file, const void *buf, size_t size)
+{ return -EROFS; }
 static soff_t fsvrsimp_lseek_unseekable(struct file *file, soff_t offset, int whence)
 { return -ESPIPE; }

@@ -135,22 +135,22 @@
 #define EHWPOISON	133	// Memory page has hardware error
 #define ENOCAP	134	// No such capability
 #define EMMSG	135	// Too many messages
-#define ENOTCAP	136	// Not a capability
+#define ENOTCAP	136	// Capability required
 #define ELRWTERM	137	// Long read/write terminated
-#define ESTAGE	138	// Unmatched IPC stage
-#define ESTAGE1	139	// Unmatched IPC stage 1
-#define ESTAGE2	140	// Unmatched IPC stage 2
-#define ESTAGE3	141	// Unmatched IPC stage 3
-#define ESTAGE4	142	// Unmatched IPC stage 4
-#define ESTAGE5	143	// Unmatched IPC stage 5
-#define ESTAGE6	144	// Unmatched IPC stage 6
-#define ESTAGE7	145	// Unmatched IPC stage 7
-#define ESTAGE8	146	// Unmatched IPC stage 8
-#define ESTAGE9	147	// Unmatched IPC stage 9
-#define ESTAGE10	148	// Unmatched IPC stage 10
-#define ESTAGE11	149	// Unmatched IPC stage 11
-#define ESTAGE12	150	// Unmatched IPC stage 12
-#define ESTAGE13	151	// Unmatched IPC stage 13
-#define ESTAGE14	152	// Unmatched IPC stage 14
-#define ESTAGE15	153	// Unmatched IPC stage 15
+#define ESTAGE	138	// IPC stage dismatched
+#define ESTAGE1	139	// IPC stage 1 dismatched
+#define ESTAGE2	140	// IPC stage 2 dismatched
+#define ESTAGE3	141	// IPC stage 3 dismatched
+#define ESTAGE4	142	// IPC stage 4 dismatched
+#define ESTAGE5	143	// IPC stage 5 dismatched
+#define ESTAGE6	144	// IPC stage 6 dismatched
+#define ESTAGE7	145	// IPC stage 7 dismatched
+#define ESTAGE8	146	// IPC stage 8 dismatched
+#define ESTAGE9	147	// IPC stage 9 dismatched
+#define ESTAGE10	148	// IPC stage 10 dismatched
+#define ESTAGE11	149	// IPC stage 11 dismatched
+#define ESTAGE12	150	// IPC stage 12 dismatched
+#define ESTAGE13	151	// IPC stage 13 dismatched
+#define ESTAGE14	152	// IPC stage 14 dismatched
+#define ESTAGE15	153	// IPC stage 15 dismatched
 #define EBADUS	154	// Bad user argument given to server

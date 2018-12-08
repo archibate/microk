@@ -1,6 +1,7 @@
+#include <fs/server.h>
 #include <l4/capipc.h>
 #include <l4/ichipc.h>
-#include <fs/server.h>
+#include <l4/rwipc.h>
 #include <struct.h>
 #include "secrets.h"
 #include <debug.h>
@@ -39,6 +40,12 @@ l4id_t fs_serve(struct file *file, l4id_t cli)
 	else if (msg.cmd == FS_GETICH)
 	{
 		res = file->f_op->getich(file);
+	}
+	else if (msg.cmd == FS_READDIR)
+	{
+		struct direntry ent;
+		res = file->f_op->readdir(file, &ent);
+		l4_write(cli, &ent, sizeof(ent));
 	}
 	else
 	{

@@ -2,7 +2,7 @@
 
 	GLOBAL _vsyscall_entries
 	GLOBAL _exit, open, read, write, close, lseek, execa, fork, brk, sbrk, getpid, getppid, waitpid, getich, openat
-	GLOBAL getsafeval, setsafeval
+	GLOBAL getsafeval, setsafeval, pread, pwrite, readdir
 
 vsystab equ 0xc0000000
 
@@ -43,3 +43,9 @@ getsafeval:
 	jmp [vsystab + 4*15]
 setsafeval:
 	jmp [vsystab + 4*16]
+pread:
+	jmp [vsystab + 4*17]
+pwrite:
+	jmp [vsystab + 4*18]
+readdir:
+	jmp [vsystab + 4*19]

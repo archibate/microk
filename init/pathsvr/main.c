@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <debug.h>
 #include <numtools.h>
+#include <l4capids.h>
 #include <l4ids.h>
 
 static inline l4id_t open_inode(struct inode *inode, uint oflags)
@@ -95,12 +96,15 @@ void init_ftab(void)
 	NEW_BIN_FILE("/bin/cat", cat);
 	NEW_BIN_FILE("/bin/shell", shell);
 	NEW_BIN_FILE("/sys/xterm", xterm);
+	NEW_BIN_FILE("/sys/ramfs", ramfs);
 	NEW_BIN_FILE("/bin/hello", hello);
 	NEW_BIN_FILE("/bin/termctl", termctl);
 	NEW_TXT_FILE("hello.txt", "Hello, World!\n");
 	NEW_SVR_FILE("/dev/vmon0", L4ID_XTMSVR);
 	NEW_SVR_FILE("/dev/mon0",  L4ID_COMSVR);
 	NEW_SVR_FILE("/dev/kbd0",  L4ID_KBDSVR);
+	NEW_FILE("/dev/fd0", (void*)0xe0000000, 0x90000);
+	l4_cmap(KMEM_CAP, 0x7000, 0xe0000000, 0x90000, 0);
 }
 
 void path_server(void)

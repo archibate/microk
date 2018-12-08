@@ -1,8 +1,8 @@
 #include <stdlib.h>
-#include <debug.h>
+#include <stdio.h>
 
 void __attribute__((noreturn)) abort(void)
 {
-	dbg_printf("aborted\n");
+	fprintf(stderr, "aborted\n");
 	exit(1);
 }

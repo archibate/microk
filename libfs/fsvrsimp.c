@@ -23,7 +23,9 @@ int fsvrsimp_open_general(struct file *file, struct inode *inode, uint oflags)
 	file->f_inode = inode;
 	file->f_op = inode->i_fop;
 	file->f_size = inode->i_size;
+	file->f_clus = inode->i_clus;
 	file->f_oflags = oflags;
+	file->f_cloff = 0;
 	file->f_pos = 0;
 	return 0;
 }

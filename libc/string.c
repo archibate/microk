@@ -124,7 +124,7 @@ int strchop(char *dst, const char *chrs)
 		dst[len--] = 0;
 		i++;
 	}
-	return 0;
+	return len + 1;
 }
 
 char *strtrim(char *dst, const char *chrs)

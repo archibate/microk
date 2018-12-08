@@ -133,22 +133,22 @@
 	EHWPOISON	: Memory page has hardware error
 	ENOCAP		: No such capability
 	EMMSG		: Too many messages
-	ENOTCAP		: Not a capability
+	ENOTCAP		: Capability required
 	ELRWTERM	: Long read/write terminated
-	ESTAGE		: Unmatched IPC stage
-	ESTAGE1		: Unmatched IPC stage 1
-	ESTAGE2		: Unmatched IPC stage 2
-	ESTAGE3		: Unmatched IPC stage 3
-	ESTAGE4		: Unmatched IPC stage 4
-	ESTAGE5		: Unmatched IPC stage 5
-	ESTAGE6		: Unmatched IPC stage 6
-	ESTAGE7		: Unmatched IPC stage 7
-	ESTAGE8		: Unmatched IPC stage 8
-	ESTAGE9		: Unmatched IPC stage 9
-	ESTAGE10	: Unmatched IPC stage 10
-	ESTAGE11	: Unmatched IPC stage 11
-	ESTAGE12	: Unmatched IPC stage 12
-	ESTAGE13	: Unmatched IPC stage 13
-	ESTAGE14	: Unmatched IPC stage 14
-	ESTAGE15	: Unmatched IPC stage 15
+	ESTAGE		: IPC stage dismatched
+	ESTAGE1		: IPC stage 1 dismatched
+	ESTAGE2		: IPC stage 2 dismatched
+	ESTAGE3		: IPC stage 3 dismatched
+	ESTAGE4		: IPC stage 4 dismatched
+	ESTAGE5		: IPC stage 5 dismatched
+	ESTAGE6		: IPC stage 6 dismatched
+	ESTAGE7		: IPC stage 7 dismatched
+	ESTAGE8		: IPC stage 8 dismatched
+	ESTAGE9		: IPC stage 9 dismatched
+	ESTAGE10	: IPC stage 10 dismatched
+	ESTAGE11	: IPC stage 11 dismatched
+	ESTAGE12	: IPC stage 12 dismatched
+	ESTAGE13	: IPC stage 13 dismatched
+	ESTAGE14	: IPC stage 14 dismatched
+	ESTAGE15	: IPC stage 15 dismatched
 	EBADUS		: Bad user argument given to server

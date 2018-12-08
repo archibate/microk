@@ -1,6 +1,6 @@
 ; vim: ft=nasm ai
 
-CYLS	equ	10
+CYLS	equ	30
 KERNADR	equ	0x100000 ; KTMPADR
 VINFO	equ	0x7b00
 VGAMODE equ	0x13
